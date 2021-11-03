@@ -21,3 +21,8 @@ class Help:
         print("\n\t[+] S3 Modules\n")
         print("\t-s, --s4_recon = Start S3 recon.")
         print("\t\t-h, --help = Print this help and exit.")
+        print("\n\t[+] EC2 Modules\n")
+        print("\t-el, --ec2_list_instances = Lists all available EC2 instances.")
+        print("\t-est, --ec2_start_instances = Start the selected EC2 instance.")
+        print("\t-esp, --ec2_stop_instances = Stop the selected EC2 instance.")
+

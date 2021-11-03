@@ -1,12 +1,12 @@
 import boto3
 import sys
 import argparse
-import banner
-import help_functions
-import iam_functions
-import s3_functions
-import sts_functions
-import ec2_functions
+from modules import banner
+from modules import help_functions
+from modules import iam_functions
+from modules import s3_functions
+from modules import sts_functions
+from modules import ec2_functions
 
 def get_arguments():
     parser = argparse.ArgumentParser(add_help=False)
