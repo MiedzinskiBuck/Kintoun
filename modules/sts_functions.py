@@ -16,3 +16,13 @@ class Sts:
             return response
         except Exception as e:
             return(e.response["Error"]["Code"])
+
+    def get_account_number(self, client, access_key_id):
+        try:
+            response = client.get_access_key_info(
+                AccessKeyId=access_key_id
+            )
+            return response["Account"]
+        except Exception as e:
+            return(e)
+

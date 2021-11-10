@@ -11,6 +11,8 @@ class Help:
         print("\n==============================================================================================")
         print("Available Modules...")
         print("================================================================================================")
+        print("\n\t[+] STS Modules\n")
+        print("\t-k, --key-info = Grab the account number bellonging to the specified access key.")
         print("\n\t[+] IAM Modules\n")
         print("\t-i, --iam_recon = Start IAM recon.")
         print("\n")

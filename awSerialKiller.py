@@ -17,6 +17,7 @@ def get_arguments():
     parser.add_argument("-i", "--iam_recon", dest="iam_recon", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-s", "--s3_recon", dest="s3_recon", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-b", "--brute_role", dest="brute_role", help=argparse.SUPPRESS, action="store_true")
+    parser.add_argument("-k", "--key-info", dest="key_info", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-el", "--ec2_list_instances", dest="ec2_list_instances", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-est", "--ec2_start_instances", dest="ec2_start_instances", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-esp", "--ec2_stop_instances", dest="ec2_stop_instances", help=argparse.SUPPRESS, action="store_true")
@@ -110,6 +111,13 @@ def ec2_list_all_instances(session):
         except Exception as e:
             print(e)
 
+def sts_get_account_number(session, key):
+    print("\n[+] Fetching account number...")
+    sts = sts_functions.Sts()
+    client = sts.get_client(session)
+    account_number = sts.get_account_number(client, key)
+    print("[+] Account Number: {}".format(account_number))
+
 def main():
     banner.Banner()
     args = get_arguments()
@@ -148,6 +156,12 @@ def main():
         ec2_stop_instance(session)
     if args.ec2_list_instances:
         ec2_list_all_instances(session)
+
+    # STS Functions #################################################################
+    if args.key_info:
+        print("[+] Please type the access key to be used...")
+        key = input("Access Key: ")
+        sts_get_account_number(session, key)
 
 if __name__ == "__main__":
     main()
