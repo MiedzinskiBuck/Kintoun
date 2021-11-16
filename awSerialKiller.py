@@ -30,6 +30,7 @@ def get_arguments():
     return args
 
 def get_session(profile):
+    print("[+] Creating session for the following profile: {}".format(profile))
     return boto3.Session(profile_name=profile)
 
 def iam_recon(session):
