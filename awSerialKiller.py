@@ -7,9 +7,11 @@ from modules import iam_functions
 from modules import s3_functions
 from modules import sts_functions
 from modules import ec2_functions
+from modules import console
 
 def get_arguments():
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-c", "--console", dest="console", help=argparse.SUPPRESS, action="store_true")
     parser.add_argument("-p", "--profile", dest="profile", nargs='?', const="default", help=argparse.SUPPRESS)
     parser.add_argument("-w", "--wordlist", dest="wordlist", help=argparse.SUPPRESS)
     parser.add_argument("-a", "--acc_number", dest="acc_number", help=argparse.SUPPRESS)
@@ -118,6 +120,15 @@ def sts_get_account_number(session, key):
     account_number = sts.get_account_number(client, key)
     print("[+] Account Number: {}".format(account_number))
 
+def create_console_link(session, profile):
+    print("[+] Getting login information for: {}".format(profile))
+    try:
+        console_function = console.Console()
+        console_link = console_function.get_console_link(session, profile)
+        print("[+] Console Link: {}".format(console_link))
+    except Exception as e:
+        print(e)
+
 def main():
     banner.Banner()
     args = get_arguments()
@@ -129,6 +140,14 @@ def main():
     if args.help:
         help_functions.Help()
         exit(0)
+
+    # Console       #################################################################
+
+    if args.console and not args.profile:
+        print("[-] Please specify the profile to be used with -p")
+        exit(0)
+    if args.console and args.profile:
+        create_console_link(session, profile)
 
     # IAM Functions #################################################################
     if args.iam_recon:

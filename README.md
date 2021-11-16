@@ -5,3 +5,5 @@
 The main idea of this tool is to implement a few checks that I usually do when assessing an AWS Environment.
 
 This is still experimental and still under development.
+
+I understand that the code is not structured in the best way. Suggestions are more than appreciated.
