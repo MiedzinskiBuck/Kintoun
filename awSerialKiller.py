@@ -141,7 +141,7 @@ def main():
         help_functions.Help()
         exit(0)
 
-    # Console       #################################################################
+    # Console #######################################################################
 
     if args.console and not args.profile:
         print("[-] Please specify the profile to be used with -p")
