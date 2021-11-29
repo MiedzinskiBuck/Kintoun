@@ -1,4 +1,4 @@
-class Test:
+class Module:
 
     def main(self):
         print("Worked!")

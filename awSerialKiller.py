@@ -7,23 +7,23 @@ def list_available_modules():
     catalog = {}
     categories = os.listdir("./modules/")
     for category in categories:
-        modules = os.listdir("./modules/{}/".format(category))
-        catalog[category] = modules
+        try:
+            modules = os.listdir("./modules/{}/".format(category))
+            catalog[category] = modules
+        except NotADirectoryError:
+            pass
     
     return catalog
 
-def load_module(cmd, base_path):
+def load_module(cmd):
      cmd_arguments = cmd.split()
-     module_path = base_path + "/modules/{}".format(cmd_arguments[1])
 
-     # module = importlib.import_module(module_path)
-     module = __import__(module_path)
+     module_path = "modules/{}".format(cmd_arguments[1])
+     module_path = module_path.replace('/', '.').replace('\\', '.')
 
-     print("Command: {}".format(cmd_arguments))
-     print("Selected Module: {}".format(cmd_arguments[1]))
-     print("Base Path: {}".format(base_path))
-     print("Module Path: {}".format(module_path))
-     # print("Imported Modules: {}".format(module))
+     loaded_module = importlib.import_module(module_path)
+     module = loaded_module.Module()
+     module.main()
 
 def main():
     banner.Banner()
@@ -50,7 +50,7 @@ def main():
                 break
             elif check_cmd == "use":
                 base_path = os.getcwd()
-                load_module(cmd, base_path)
+                load_module(cmd)
             elif check_cmd == "help":
                 print("\n==============================\nAVAILABLE COMMANDS\n==============================")
                 for command in available_commands:

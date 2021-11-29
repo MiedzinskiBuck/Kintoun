@@ -46,3 +46,6 @@ class Console:
 
         url = 'https://signin.aws.amazon.com/federation?{}'.format(urllib.parse.urlencode(params))
         return(url)
+    
+    def main(self):
+        pass
