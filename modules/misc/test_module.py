@@ -1,4 +1,2 @@
-class Module:
-
-    def main(self):
-        print("Worked!")
+def main(session):
+    print("Worked! Session is {}".format(session))

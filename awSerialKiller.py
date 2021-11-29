@@ -1,3 +1,4 @@
+import boto3
 import os
 import importlib
 from functions import banner
@@ -15,21 +16,27 @@ def list_available_modules():
     
     return catalog
 
-def load_module(cmd):
-     cmd_arguments = cmd.split()
+def load_module(cmd, session):
+    cmd_arguments = cmd.split()
 
-     module_path = "modules/{}".format(cmd_arguments[1])
-     module_path = module_path.replace('/', '.').replace('\\', '.')
+    module_path = "modules/{}".format(cmd_arguments[1])
+    module_path = module_path.replace('/', '.').replace('\\', '.')
 
-     loaded_module = importlib.import_module(module_path)
-     module = loaded_module.Module()
-     module.main()
+    module = importlib.import_module(module_path)
+    module.main(session)
 
 def main():
     banner.Banner()
-
     available_commands = ['modules', 'exit', 'use', 'help']
 
+    profile = input("[+] Profile to be used: ")
+
+    if not profile:
+        profile = "default"
+
+    session = boto3.Session(profile_name=profile)
+
+    print("[+] Using profile: {}\n".format(profile))
     print("[+] Ready to begin! Type 'modules' for a list of available modules.")
 
     try:
@@ -49,8 +56,7 @@ def main():
                 print("\nGoodbye!")
                 break
             elif check_cmd == "use":
-                base_path = os.getcwd()
-                load_module(cmd)
+                load_module(cmd, session)
             elif check_cmd == "help":
                 print("\n==============================\nAVAILABLE COMMANDS\n==============================")
                 for command in available_commands:
