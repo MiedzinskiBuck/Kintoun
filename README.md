@@ -2,36 +2,23 @@
 
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
 
-The main idea of this tool is to implement a few checks that I usually do when assessing an AWS Environment.
+Tool to help in AWS testing. This project started as a way to learn more about AWS attacks and, after a while, it became a tool that helped me allong with some aws testing, so I've decided to make it a modular tool.
 
-This is still experimental and still under development.
-
-I understand that the code is not structured in the best way. Suggestions are more than appreciated.
+The main idea behind this tool is to make it flexible and allow it to growth as new features and vulnerabilities are introduced into the AWS environment while keeping its code base simple.
 
 ## To Do
 
-- Convert application to interactive application.
 - Implement some way to store data.
 - Start implementing privesc modules.
 
 ## MODULES 
 
-### MISC
-### ENUMERATION
-### PRIVILEGE ESCALATION
-### LATERAL MOVEMENT
-### EXFILTRATION
-### DEFENSE EVASION
+The tools is "module based" which means that we have a main program that dinamically loads the required modules to run.
 
-## AVAILABLE FUNCTIONALITIES
+The modules will follow a template that will allow each module to be loaded and ran by demmand.
 
-This section is used to map the functions that I had previously implemented to help me refactor it.
+### HOW TO CREATE A MODULE
 
-- Console
-- Key Information
-- iam_recon
-- s3_recon
-- brute_role
-- ec2_list_instances
-- ec2_start_instances
-- ec2_stop_instances
+Once a module is selected **AWSerialKiller** will load this module in runtime and call its **main()** function, passing the current session to it. 
+
+In order to create a module, it is just a matter of creating a **main()** function that will receive the current session and perform other actions with this session's context.
