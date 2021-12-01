@@ -1,8 +1,10 @@
 import boto3
+import sys
 import os
 import importlib
 from functions import banner
-from functions import help_functions
+from botocore.exceptions import ProfileNotFound
+
 
 def list_available_modules():
     catalog = {}
@@ -24,7 +26,8 @@ def load_module(cmd, session):
         module_path = module_path.replace('/', '.').replace('\\', '.')
 
         module = importlib.import_module(module_path)
-        module.main(session)
+        module_info = module.main(session)
+        print(module_info)
     except ModuleNotFoundError:
         print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
 
@@ -37,7 +40,11 @@ def main():
     if not profile:
         profile = "default"
 
-    session = boto3.Session(profile_name=profile)
+    try:
+        session = boto3.Session(profile_name=profile)
+    except ProfileNotFound:
+        print("[-] Profile not found... exiting...")
+        sys.exit()
 
     print("[+] Using profile: {}\n".format(profile))
     print("[+] Ready to begin! Type 'modules' for a list of available modules.")
