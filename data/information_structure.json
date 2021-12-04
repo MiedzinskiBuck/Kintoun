@@ -1,0 +1,50 @@
+[
+    {"SessionName": [
+        {"ec2": [{}]},
+        {"iam": [{}]},
+        {"sts": [{}]},
+        {"route53": [{}]},
+        {"dynamodb": [{}]},
+        {"rds": [{}]},
+        {"sqs": [{}]},
+        {"sns": [{}]},
+        {"cognito": [{}]},
+        {"glue": [{}]},
+        {"AccessAnalyzer": [{}]},
+        {"cloudwatch": [{}]},
+        {"cloudtrail": [{}]},
+        {"cloudformation": [{}]},
+        {"guardduty": [{}]},
+        {"lambda": [{}]},
+        {"ebs": [{}]},
+        {"s3": [{}]},
+        {"codebuild": [{}]},
+        {"secrets": [{}]},
+        {"api_gateway": [{}]}
+        ]
+    },
+    {"SessionName": [
+        {"ec2": [{}]},
+        {"iam": [{}]},
+        {"sts": [{}]},
+        {"route53": [{}]},
+        {"dynamodb": [{}]},
+        {"rds": [{}]},
+        {"sqs": [{}]},
+        {"sns": [{}]},
+        {"cognito": [{}]},
+        {"glue": [{}]},
+        {"AccessAnalyzer": [{}]},
+        {"cloudwatch": [{}]},
+        {"cloudtrail": [{}]},
+        {"cloudformation": [{}]},
+        {"guardduty": [{}]},
+        {"lambda": [{}]},
+        {"ebs": [{}]},
+        {"s3": [{}]},
+        {"codebuild": [{}]},
+        {"secrets": [{}]},
+        {"api_gateway": [{}]}
+        ]
+    }
+]

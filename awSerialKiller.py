@@ -3,8 +3,8 @@ import sys
 import os
 import importlib
 from functions import banner
+from functions import data_parser
 from botocore.exceptions import ProfileNotFound
-
 
 def list_available_modules():
     catalog = {}
@@ -27,15 +27,19 @@ def load_module(cmd, session):
 
         module = importlib.import_module(module_path)
         module_info = module.main(session)
-        print(module_info)
     except ModuleNotFoundError:
         print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
 
+    return module_info
+
 def main():
     banner.Banner()
-    available_commands = ['modules', 'exit', 'use', 'help']
+    parser = data_parser.Parser()
 
-    profile = input("[+] Profile to be used: ")
+    available_commands = ['modules', 'exit', 'use', 'help']
+    selected_session = parser.session_select()
+
+    profile = input("\n[+] Profile to be used: ")
 
     if not profile:
         profile = "default"
@@ -51,31 +55,37 @@ def main():
 
     try:
         while True:
-            cmd = input("\n$ ")
-            check_cmd = cmd.lower().split()[0]
+            try:
+                cmd = input("\n[{}:{}] $ ".format(selected_session, profile))
+                check_cmd = cmd.lower().split()[0]
 
-            if check_cmd not in available_commands:
-                print("\n[-] Unavailable module, type 'modules' for a list of available modules.")
+                if check_cmd not in available_commands:
+                    print("\n[-] Unavailable module, type 'modules' for a list of available modules.")
 
-            elif check_cmd == "modules":
-                available_modules = list_available_modules()
-                print("\n==============================\nAVAILABLE MODULES\n==============================")
-                for module_category in available_modules:
-                    print("\n{}\n".format(module_category.upper()))
-                    for module in available_modules[module_category]:
-                        print("- {}/{}".format(module_category, module.strip(".py")))
-                        
-            elif check_cmd == "exit":
-                print("\nGoodbye!")
-                break
+                elif check_cmd == "modules":
+                    available_modules = list_available_modules()
+                    print("\n==============================\nAVAILABLE MODULES\n==============================")
+                    for module_category in available_modules:
+                        print("\n{}\n".format(module_category.upper()))
+                        for module in available_modules[module_category]:
+                            print("- {}/{}".format(module_category, module.strip(".py")))
+                            
+                elif check_cmd == "exit":
+                    print("\nGoodbye!")
+                    break
 
-            elif check_cmd == "use":
-                load_module(cmd, session)
+                elif check_cmd == "use":
+                    module_results = load_module(cmd, session)
+                    executed_module = cmd.lower().split()[1]
+                    parsed_module_results = parser.parse_module_results(executed_module, module_results)
+                    parser.store_parsed_results(selected_session, parsed_module_results)
 
-            elif check_cmd == "help":
-                print("\n==============================\nAVAILABLE COMMANDS\n==============================")
-                for command in available_commands:
-                    print("- {}".format(command))
+                elif check_cmd == "help":
+                    print("\n==============================\nAVAILABLE COMMANDS\n==============================")
+                    for command in available_commands:
+                        print("- {}".format(command))
+            except Exception as e:
+                print(e)
 
     except (KeyboardInterrupt):
             print("\n\nGoodbye!")
