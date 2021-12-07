@@ -1,2 +1,4 @@
 __pycache__/
 *.py[cod]
+
+priv_esc_scenarios.md
