@@ -36,7 +36,7 @@ def main():
     banner.Banner()
     parser = data_parser.Parser()
 
-    available_commands = ['modules', 'exit', 'use', 'help']
+    available_commands = ['modules', 'exit', 'use', 'help', 'run']
     selected_session = parser.session_select()
 
     profile = input("\n[+] Profile to be used: ")
@@ -74,7 +74,7 @@ def main():
                     print("\nGoodbye!")
                     break
 
-                elif check_cmd == "use":
+                elif check_cmd == "use" or check_cmd == "run":
                     module_results = load_module(cmd, session)
                     executed_module = cmd.lower().split()[1]
                     parsed_module_results = parser.parse_module_results(executed_module, module_results)

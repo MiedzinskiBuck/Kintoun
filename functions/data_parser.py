@@ -1,44 +1,42 @@
 import json
+import os
 import sys
 from pathlib import Path
 
 class Parser:
 
     def session_select(self):
-        check_file = Path("data/session_data.json")
-        if check_file.is_file():
-            data_file = json.load(open("data/session_data.json"))
+        session_name = ""
+        available_sessions = os.listdir("./results/")
+        if available_sessions:
             print("================================================================================================")
             print("[+] Select Session:\n")
             print("0 - New Session")
             option = 1
-            for session_data in data_file:
-                session = list(session_data.keys())[0]
-                print("{} - {}".format(str(option), session))
+            session_options = {}
+            for stored_session in available_sessions:
+                stored_session = stored_session.split("_")[0]
+                session_options[str(option)] = stored_session
+                print("{} - {}".format(str(option), stored_session))
                 option += 1
             selected_option = input("\nSession: ")
             if not selected_option:
-                print("\n[-] No session selected....exiting...")
+                print("\n[-] No session selected...exiting...")
                 sys.exit()
             selected_option = int(selected_option)
             if selected_option == 0:
                 selected_session = input("[+] Please name your session: ")
-                json_data = {selected_session : []}
-                data_file.append(json_data)
-                write_file = open("data/session_data.json", "w")
-                json.dump(data_file, write_file, default=str)
-                write_file.close()
+                open("results/{}_session_data.json".format(selected_session), "w").close()
+                session_name = selected_session
             else:
-                selected_option -= 1
-                selected_session = list(data_file[selected_option].keys())[0]
+                session_name = session_options[str(selected_option)]
         else:
-            data_file = open("data/session_data.json", "w")
             print("================================================================================================")
             selected_session = input("[+] Please name your session: ")
-            json_data = '[{"' + selected_session + '" : []}]'
-            data_file.write(json_data)
-            
-        return selected_session
+            session_name = selected_session
+            open("results/{}_session_data.json".format(selected_session), "w").close()
+
+        return session_name
     
     def parse_module_results(self, executed_command, module_results):
         executed_module = executed_command.split("/")[1]
@@ -50,14 +48,15 @@ class Parser:
         return parsed_data 
 
     def store_parsed_results(self, selected_session, parsed_results):
-        data_file = open('data/session_data.json', 'r')
-        json_data = json.load(data_file)
+        path = './results/{}_session_data.json'.format(selected_session)
+        data_file = open(path, 'r')
+        if os.stat(path).st_size != 0:
+            file_data = dict(json.load(data_file))
+            data_file.close()
+        else:
+            file_data = {}
+        category = list(parsed_results)[0]
+        file_data[category] = parsed_results[category]
+        data_file = open('./results/{}_session_data.json'.format(selected_session), 'w')
+        json.dump(file_data, data_file, default=str)
         data_file.close()
-        for session in json_data:
-            try:
-                session[selected_session].append(parsed_results)
-            except:
-                pass
-
-        data_file = open('data/session_data.json', 'w')
-        json.dump(json_data, data_file, default=str)

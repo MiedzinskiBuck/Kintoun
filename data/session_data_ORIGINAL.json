@@ -1,2 +1,0 @@
-[{"TestSession": [{"iam": [{"iamKey": "iamValue"}]}, {"console": null}]}, {"TestSession2": [{"ec2": [{"ec2Key": "ec2Value2"}]}, {"iam": [{"iamKey": "iamValue2"}]}]}]    
-
