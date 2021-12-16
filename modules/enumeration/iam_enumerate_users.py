@@ -6,7 +6,7 @@ def iam_enumerate_users(session):
 
     return response
 
-def main(session):
+def main(selected_session, session):
     users = iam_enumerate_users(session)
     for user in users["Users"]:
         print("=========================================")

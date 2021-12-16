@@ -18,7 +18,7 @@ def list_available_modules():
     
     return catalog
 
-def load_module(cmd, session):
+def load_module(cmd, selected_session, session):
     cmd_arguments = cmd.split()
 
     try:
@@ -26,11 +26,12 @@ def load_module(cmd, session):
         module_path = module_path.replace('/', '.').replace('\\', '.')
 
         module = importlib.import_module(module_path)
-        module_info = module.main(session)
+        module_info = module.main(selected_session, session)
+
+        return module_info
+
     except ModuleNotFoundError:
         print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
-
-    return module_info
 
 def main():
     banner.Banner()
@@ -75,10 +76,16 @@ def main():
                     break
 
                 elif check_cmd == "use" or check_cmd == "run":
-                    module_results = load_module(cmd, session)
-                    executed_module = cmd.lower().split()[1]
-                    parsed_module_results = parser.parse_module_results(executed_module, module_results)
-                    parser.store_parsed_results(selected_session, parsed_module_results)
+                    module_results = load_module(cmd, selected_session, session)
+                    if module_results == None:
+                        pass
+                    else:
+                        try:
+                            executed_module = cmd.lower().split()[1]
+                            parsed_module_results = parser.parse_module_results(executed_module, module_results)
+                            parser.store_parsed_results(selected_session, parsed_module_results)
+                        except:
+                            pass
 
                 elif check_cmd == "help":
                     print("\n==============================\nAVAILABLE COMMANDS\n==============================")
