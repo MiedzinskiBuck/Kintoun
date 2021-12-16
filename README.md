@@ -13,6 +13,8 @@ The main idea behind this tool is to make it flexible and allow it to growth as 
 
 ## MODULES 
 
+To facilitate parsing, all modules main functions receives at least a "selected_session", which will be used to store results and the actual "session", which will be used to create a boto3 client.
+
 The tools is "module based" which means that we have a main program that dinamically loads the required modules to run.
 
 The modules will follow a template that will allow each module to be loaded and ran by demmand.
