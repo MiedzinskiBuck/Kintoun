@@ -44,7 +44,7 @@ def get_console_link(session):
     url = 'https://signin.aws.amazon.com/federation?{}'.format(urllib.parse.urlencode(params))
     return(url)
 
-def main(session):
+def main(selected_session, session):
     
     print("[+] Getting login information...\n")
     try:
