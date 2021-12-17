@@ -1,4 +1,5 @@
 import boto3
+import os
 import json
 
 # Understand if the user wants to enumerate permissions to all users or just one user
@@ -29,23 +30,27 @@ def get_user(session, user):
             print(policyStatement['Action'])
 
 def main(selected_session, session):
-    users = json.load(open("./results/{}_session_data.json".format(selected_session), "r"))
-    try:
-        print("================================================================================================")
-        print("[+] Select User:")
-        option = 1
-        available_users = {}
-        for user in users['iam']['Users']:
-            available_users[str(option)] = user["UserName"]
-            print("{} - {}".format(str(option), user["UserName"]))
-            option += 1
-        selected_user = input("\n[+] User(Default = All): ")
-        if not selected_user:
-            get_all_users(session)
-        else:
-            get_user(session, available_users[selected_user])
-    except Exception:
-        print("[-] No users found...please run the 'enumeration/iam_enumerate_users' module first...")
-        return None
-    
+    print("[+] Starting Module...")
+    file_path = "./results/{}_session_data.json".format(selected_session)
+    if os.path.exists(file_path):
+        print("[+] Worked")
+        #try:
+        #    print("================================================================================================")
+        #    print("[+] Select User:")
+        #    option = 1
+        #    available_users = {}
+        #    for user in users['iam']['Users']:
+        #        available_users[str(option)] = user["UserName"]
+        #        print("{} - {}".format(str(option), user["UserName"]))
+        #        option += 1
+        #    selected_user = input("\n[+] User(Default = All): ")
+        #    if not selected_user:
+        #        get_all_users(session)
+        #    else:
+        #        get_user(session, available_users[selected_user])
+        #except Exception:
+        #    print("[-] No users found...please run the 'enumeration/iam_enumerate_users' module first...")
+        #    return None
+    else:
+        print("[-] No users found, please run the 'enumeration/iam_enumerate_users' module first...")    
 
