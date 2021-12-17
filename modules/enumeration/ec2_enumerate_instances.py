@@ -45,7 +45,6 @@ def main(selected_session, session):
     if not selected_region:
         for region in regions:
             instance_data = list_instances(session, region)
-            print("[+] Instance Data = {}".format(instance_data))
             if instance_data:
                 ec2_instances_data.append(instance_data)
                 parse_instance_data(instance_data)

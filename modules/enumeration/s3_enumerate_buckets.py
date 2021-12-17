@@ -56,3 +56,5 @@ def main(selected_session, session):
         print("\n[+] Starting Bucket Objects Enumeration...")
         print("================================================================================================")
         list_bucket_objects(client, bucket_names)
+
+    return bucket_data.get('Buckets')

@@ -8,9 +8,6 @@ The main idea behind this tool is to make it flexible and allow it to growth as 
 
 ## To Do
 
-- Implement some way to store data.
-- Start implementing privesc modules.
-
 ## MODULES 
 
 To facilitate parsing, all modules main functions receives at least a "selected_session", which will be used to store results and the actual "session", which will be used to create a boto3 client.
