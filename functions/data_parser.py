@@ -26,7 +26,7 @@ class Parser:
             selected_option = int(selected_option)
             if selected_option == 0:
                 selected_session = input("[+] Please name your session: ")
-                open("results/{}_session_data.json".format(selected_session), "w").close()
+                os.mkdir("results/{}_session_data".format(selected_session))
                 session_name = selected_session
             else:
                 session_name = session_options[str(selected_option)]
@@ -34,7 +34,7 @@ class Parser:
             print("================================================================================================")
             selected_session = input("[+] Please name your session: ")
             session_name = selected_session
-            open("results/{}_session_data.json".format(selected_session), "w").close()
+            os.mkdir("results/{}_session_data".format(selected_session))
 
         return session_name
     
@@ -48,15 +48,11 @@ class Parser:
         return parsed_data 
 
     def store_parsed_results(self, selected_session, parsed_results):
-        path = './results/{}_session_data.json'.format(selected_session)
-        data_file = open(path, 'r')
-        if os.stat(path).st_size != 0:
-            file_data = dict(json.load(data_file))
-            data_file.close()
-        else:
-            file_data = {}
         category = list(parsed_results)[0]
-        file_data[category] = parsed_results[category]
-        data_file = open('./results/{}_session_data.json'.format(selected_session), 'w')
-        json.dump(file_data, data_file, default=str)
-        data_file.close()
+        category_path = "./results/{}_session_data/{}".format(selected_session, category)
+        if not os.path.exists(category_path):
+            os.mkdir(category_path)
+        
+        results_file = open("{}/{}_results.json".format(category_path, category), "w")
+        json.dump(parsed_results, results_file, default=str)
+        results_file.close()
