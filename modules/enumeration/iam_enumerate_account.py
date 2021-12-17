@@ -38,19 +38,19 @@ def get_account_information(session):
 def store_results(selected_session, user_details, group_details, role_details, policy_details):
     print('[+] Storing results...')
 
-    user_file = open("results/{}_user_data.json".format(selected_session), "w")
+    user_file = open("results/{}_session_data/iam/user_data.json".format(selected_session), "w")
     json.dump(user_details, user_file, default=str)
     user_file.close()
 
-    group_file = open("results/{}_group_data.json".format(selected_session), "w")
+    group_file = open("results/{}_session_data/iam/group_data.json".format(selected_session), "w")
     json.dump(user_details, group_file, default=str)
     group_file.close()
 
-    role_file = open("results/{}_role_data.json".format(selected_session), "w")
+    role_file = open("results/{}_session_data/iam/role_data.json".format(selected_session), "w")
     json.dump(user_details, role_file, default=str)
     role_file.close()
 
-    policy_file = open("results/{}_policy_data.json".format(selected_session), "w")
+    policy_file = open("results/{}_session_data/iam/policy_data.json".format(selected_session), "w")
     json.dump(user_details, policy_file, default=str)
     policy_file.close()
 
