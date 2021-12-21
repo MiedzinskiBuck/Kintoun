@@ -46,7 +46,7 @@ def get_console_link(session):
 
 def main(selected_session, session):
     
-    print("[+] Getting login information...\n")
+    print("\n[+] Getting login information...\n")
     try:
         console_link = get_console_link(session)
         print("[+] Console Link: {}".format(console_link))

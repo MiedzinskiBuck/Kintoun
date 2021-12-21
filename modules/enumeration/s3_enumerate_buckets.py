@@ -13,7 +13,6 @@ def list_buckets(client):
 def parse_bucket_data(bucket_data):
     bucket_names = []
     for bucket in bucket_data['Buckets']:
-        print("[+] Bucket Name: {}".format(bucket['Name']))
         bucket_names.append(bucket['Name'])
     
     return bucket_names
@@ -34,12 +33,7 @@ def list_bucket_objects(client, bucket_names):
             reponse = client.list_objects_v2(Bucket=bucket, MaxKeys=1000, ContinuationToken=response['NextContinuationToken'])
             bucket_objects[bucket].extend(response['Contains'])
     
-    for bucket in bucket_names:
-        print("\n[+] Objects in bucket: {}".format(bucket))
-        print("================================================================================================")
-        for object in bucket_objects.get(bucket):
-            print("- {}".format(object.get('Key')))
-
+    return bucket_objects
 
 def main(selected_session, session):
     client = generate_client(session)
@@ -48,6 +42,10 @@ def main(selected_session, session):
     print("================================================================================================")
     bucket_data = list_buckets(client)
     bucket_names = parse_bucket_data(bucket_data)
+
+    for bucket in bucket_names:
+        print("[+] Bucket Name: {}".format(bucket))
+
     print("\n================================================================================================")
     print("[-] Do you want to enumerate objects in those buckets?")
     enumerate_objects = input("[-] WARNING: This could generate a lot of traffic [N/y]: ")
@@ -55,6 +53,12 @@ def main(selected_session, session):
     if enumerate_objects.lower() == "y" or enumerate_objects.lower() == "yes":
         print("\n[+] Starting Bucket Objects Enumeration...")
         print("================================================================================================")
-        list_bucket_objects(client, bucket_names)
+        bucket_objects = list_bucket_objects(client, bucket_names)
 
-    return bucket_data.get('Buckets')
+        for bucket in bucket_names:
+            print("\n[+] Objects in bucket: {}".format(bucket))
+            print("================================================================================================")
+            for object in bucket_objects.get(bucket):
+                print("- {}".format(object.get('Key')))
+
+    return bucket_data

@@ -48,28 +48,16 @@ class Parser:
 
         return parsed_data
 
-    def store_parsed_results(self, selected_session, parsed_results):
+    def store_parsed_results(self, selected_session, executed_module, parsed_results):
         category = list(parsed_results)[0]
         category_path = "./results/{}_session_data/{}".format(selected_session, category)
+        executed_module = executed_module.split("/")[1]
+
         if not os.path.exists(category_path):
             os.mkdir(category_path)
         
-        results_file_path = "{}/{}_results.json".format(category_path, category)
+        results_file_path = "{}/{}_results.json".format(category_path, executed_module)
 
-        if os.path.exists(results_file_path):
-            results_file = open(results_file_path, "r")
-            existent_data = json.load(results_file)
-            results_file.close()
-
-            for result in parsed_results[category]:
-                if result in existent_data[category]:
-                    pass
-                else:
-                    existent_data[category].append(result)
-
-            results_file = open(results_file_path, "w")
-            json.dump(existent_data, results_file, default=str)
-        else:
-            results_file = open("{}/{}_results.json".format(category_path, category), "w+")
-            json.dump(parsed_results, results_file, default=str)
-            results_file.close()
+        results_file = open(results_file_path, "w")
+        json.dump(parsed_results, results_file, default=str)
+        results_file.close()

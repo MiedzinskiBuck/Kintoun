@@ -83,7 +83,7 @@ def main():
                         try:
                             executed_module = cmd.lower().split()[1]
                             parsed_module_results = parser.parse_module_results(executed_module, module_results)
-                            parser.store_parsed_results(selected_session, parsed_module_results)
+                            parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
                         except:
                             pass
 
