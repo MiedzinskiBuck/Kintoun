@@ -35,10 +35,10 @@ def load_module(cmd, selected_session, session):
         print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
 
 def main():
+    available_commands = ['modules', 'exit', 'use', 'help', 'run']
+
     banner.Banner()
     parser = data_parser.Parser()
-
-    available_commands = ['modules', 'exit', 'use', 'help', 'run']
     selected_session = parser.session_select()
 
     profile = input("\n[+] Profile to be used: ")

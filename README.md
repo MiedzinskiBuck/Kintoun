@@ -8,7 +8,7 @@ The main idea behind this tool is to make it flexible and allow it to growth as 
 
 ## To Do
 
-- Change Prompt Collor
+- Change user Agent
 - Enumerate Assume Role Permissions
 - Privilege escalation Modules
 

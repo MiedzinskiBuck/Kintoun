@@ -1,5 +1,5 @@
 import boto3
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 
 def list_instances(session, region):
     try:
