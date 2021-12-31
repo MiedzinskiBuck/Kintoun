@@ -1,4 +1,5 @@
 import boto3
+from colorama import Fore, Back, Style
 
 def list_instances(session, region):
     try:
@@ -19,15 +20,15 @@ def list_instances(session, region):
         return instance_data
 
     except Exception as e:
-        print(e)
+        print(Fore.RED + e + Style.RESET_ALL)
 
 def parse_instance_data(instance_data):
     try:
         for instance in instance_data:
-            print("\n[+] Instance ID = {}".format(instance['InstanceId']))
-            print("[+] Instance Status = {}".format(instance['State']['Name']))
+            print(Fore.GREEN + "\n[+] Instance ID = {}".format(instance['InstanceId']) + Style.RESET_ALL)
+            print(Fore.GREEN + "[+] Instance Status = {}".format(instance['State']['Name']) + Style.RESET_ALL)
             if instance['State']['Name'] == "running":
-                print("[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']))
+                print(Fore.GREEN + "[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']) + Style.RESET_ALL)
             print("")
     except TypeError:
         pass

@@ -1,4 +1,5 @@
 import boto3
+from colorama import Fore, Style
 
 def get_user_name(session):
     client = session.client('iam')
@@ -13,8 +14,6 @@ def main(selected_session, session):
 
     current_user['current_user'] = username
 
-    print("\n[+] Current User: {}".format(current_user['current_user']))
+    print(Fore.GREEN + "\n[+] Current User: " + Style.RESET_ALL + "{}".format(current_user['current_user']))
 
     return current_user
-
-

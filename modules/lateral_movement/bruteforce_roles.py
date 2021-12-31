@@ -1,5 +1,6 @@
 import boto3
 import os
+from colorama import Fore, Style
 
 def assume_role(session, role_name, acc_number, session_name):
     client = session.client('sts')
@@ -17,7 +18,7 @@ def brute_role(session):
     wordlist = input("Please specify the wordlist to be used: ")
 
     if not os.path.exists(wordlist):
-        print("[-] Wordlist file not found...")
+        print(Fore.RED + "[-] Wordlist file not found..." + Style.RESET_ALL)
 
         return False
         
@@ -40,15 +41,15 @@ def brute_role(session):
             pass
 
         elif AssumeRole["ResponseMetadata"]["HTTPStatusCode"] == 200:
-            print("\n[+] Role Impersonation Successful [+]")
-            print("==============================================")
+            print(Fore.GREEN + "\n[+] Role Impersonation Successful [+]")
+            print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
             print("export AWS_ACCESS_KEY_ID={}".format(AssumeRole["Credentials"]["AccessKeyId"]))
             print("export AWS_SECRET_ACCESS_KEY={}".format(AssumeRole["Credentials"]["SecretAccessKey"]))
             print("export AWS_SESSION_TOKEN={}".format(AssumeRole["Credentials"]["SessionToken"]))
             break
 
 def main(selected_session, session):
-    print("=====================================================================================")
-    print("[+] Starting Bruteforce Roles Module...")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    print("[+] Starting Bruteforce Roles Module...\n")
 
     brute_role(session)

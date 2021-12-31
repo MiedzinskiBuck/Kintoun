@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from colorama import Fore, Back, Style
 
 class Parser:
 
@@ -12,7 +13,7 @@ class Parser:
         except FileNotFoundError:
             available_sessions = None
         if available_sessions:
-            print("================================================================================================")
+            print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
             print("[+] Select Session:\n")
             print("0 - New Session")
             option = 1
@@ -34,7 +35,7 @@ class Parser:
             else:
                 session_name = session_options[str(selected_option)]
         else:
-            print("================================================================================================")
+            print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
             selected_session = input("[+] Please name your session: ")
             session_name = selected_session
             os.makedirs("./results/{}_session_data".format(selected_session))
