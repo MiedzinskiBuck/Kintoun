@@ -9,8 +9,7 @@ def iam_enumerate_users(session):
 def main(selected_session, session):
     users = iam_enumerate_users(session)
     for user in users["Users"]:
-        print("=========================================")
-        print("[+] UserName: {}".format(user["UserName"]))
+        print("\n[+] UserName: {}".format(user["UserName"]))
         print("[+] Arn: {}".format(user["Arn"]))
 
     return users

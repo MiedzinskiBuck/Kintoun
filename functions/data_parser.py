@@ -7,7 +7,10 @@ class Parser:
 
     def session_select(self):
         session_name = ""
-        available_sessions = os.listdir("./results/")
+        try:
+            available_sessions = os.listdir("./results/")
+        except FileNotFoundError:
+            available_sessions = None
         if available_sessions:
             print("================================================================================================")
             print("[+] Select Session:\n")
@@ -34,7 +37,7 @@ class Parser:
             print("================================================================================================")
             selected_session = input("[+] Please name your session: ")
             session_name = selected_session
-            os.mkdir("results/{}_session_data".format(selected_session))
+            os.makedirs("./results/{}_session_data".format(selected_session))
 
         return session_name
     

@@ -57,7 +57,7 @@ def main():
     try:
         while True:
             try:
-                cmd = input("\n[{}:{}] $ ".format(selected_session, profile))
+                cmd = input("\nAWSerialKiller = [{}:{}] -> ".format(selected_session, profile))
                 check_cmd = cmd.lower().split()[0]
 
                 if check_cmd not in available_commands:
@@ -84,8 +84,8 @@ def main():
                             executed_module = cmd.lower().split()[1]
                             parsed_module_results = parser.parse_module_results(executed_module, module_results)
                             parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
-                        except:
-                            pass
+                        except Exception as e:
+                            print("[-] Failed to store results: {}".format(e))
 
                 elif check_cmd == "help":
                     print("\n==============================\nAVAILABLE COMMANDS\n==============================")

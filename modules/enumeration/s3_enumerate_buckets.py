@@ -38,26 +38,22 @@ def list_bucket_objects(client, bucket_names):
 def main(selected_session, session):
     client = generate_client(session)
 
-    print("\n[+] Starting Bucket Enumeration...")
-    print("================================================================================================")
+    print("\n[+] Starting Bucket Enumeration...\n")
     bucket_data = list_buckets(client)
     bucket_names = parse_bucket_data(bucket_data)
 
     for bucket in bucket_names:
         print("[+] Bucket Name: {}".format(bucket))
 
-    print("\n================================================================================================")
-    print("[-] Do you want to enumerate objects in those buckets?")
+    print("\n[-] Do you want to enumerate objects in those buckets?")
     enumerate_objects = input("[-] WARNING: This could generate a lot of traffic [N/y]: ")
 
     if enumerate_objects.lower() == "y" or enumerate_objects.lower() == "yes":
         print("\n[+] Starting Bucket Objects Enumeration...")
-        print("================================================================================================")
         bucket_objects = list_bucket_objects(client, bucket_names)
 
         for bucket in bucket_names:
-            print("\n[+] Objects in bucket: {}".format(bucket))
-            print("================================================================================================")
+            print("\n[+] Objects in bucket: {}\n".format(bucket))
             for object in bucket_objects.get(bucket):
                 print("- {}".format(object.get('Key')))
 

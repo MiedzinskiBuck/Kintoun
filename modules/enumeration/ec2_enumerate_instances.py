@@ -24,8 +24,7 @@ def list_instances(session, region):
 def parse_instance_data(instance_data):
     try:
         for instance in instance_data:
-            print("=====================================================================================")
-            print("[+] Instance ID = {}".format(instance['InstanceId']))
+            print("\n[+] Instance ID = {}".format(instance['InstanceId']))
             print("[+] Instance Status = {}".format(instance['State']['Name']))
             if instance['State']['Name'] == "running":
                 print("[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']))
@@ -38,7 +37,7 @@ def main(selected_session, session):
 
     regions_file = open("data/regions.txt", "r")
     regions = regions_file.read().splitlines()
-    print("[+] Available Regions...\n")
+    print("\n[+] Available Regions...\n")
     for region in regions:
         print("- {}".format(region))
     selected_region = input("\n[+] Select region (Default All): ")

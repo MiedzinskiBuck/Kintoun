@@ -7,8 +7,7 @@ def get_user_name(session):
     return username
 
 def main(selected_session, session):
-    print("=========================================")
-    print("[+] Getting user name....")
+    print("\n[+] Getting user name....")
     current_user = {}
     username = get_user_name(session)
 
