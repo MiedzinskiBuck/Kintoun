@@ -17,7 +17,7 @@ def main():
 
     selected_session = parser.session_select()
 
-    profile = input("[+] Profile to be used: ")
+    profile = input("\n[+] Profile to be used: ")
 
     if not profile:
         profile = "default"
@@ -28,7 +28,7 @@ def main():
         print("[-] Profile not found... exiting...")
         sys.exit()
 
-    print("\n[+] Using profile: {}\n".format(profile))
+    print("\n[+] Using profile: " + Fore.GREEN + "{}\n".format(profile) + Style.RESET_ALL)
     print("[+] Ready to begin! Type 'modules' for a list of available modules.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
