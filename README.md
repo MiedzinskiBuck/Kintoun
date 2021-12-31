@@ -8,6 +8,10 @@ The main idea behind this tool is to make it flexible and allow it to growth as 
 
 ## To Do
 
+- Change Prompt Collor
+- Enumerate Assume Role Permissions
+- Privilege escalation Modules
+
 ## MODULES 
 
 To facilitate parsing, all modules main functions receives at least a "selected_session", which will be used to store results and the actual "session", which will be used to create a boto3 client.
