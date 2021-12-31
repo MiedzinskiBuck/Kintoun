@@ -1,4 +1,5 @@
 import boto3
+from colorama import Fore, Back, Style
 
 def generate_client(session):
     client = session.client('s3')
@@ -43,7 +44,7 @@ def main(selected_session, session):
     bucket_names = parse_bucket_data(bucket_data)
 
     for bucket in bucket_names:
-        print("[+] Bucket Name: {}".format(bucket))
+        print(Fore.GREEN + "[+] Bucket Name: " + Style.RESET_ALL + "{}".format(bucket))
 
     print("\n[-] Do you want to enumerate objects in those buckets?")
     enumerate_objects = input("[-] WARNING: This could generate a lot of traffic [N/y]: ")
@@ -53,7 +54,7 @@ def main(selected_session, session):
         bucket_objects = list_bucket_objects(client, bucket_names)
 
         for bucket in bucket_names:
-            print("\n[+] Objects in bucket: {}\n".format(bucket))
+            print(Fore.GREEN + "\n[+] Objects in bucket: " + Style.RESET_ALL + "{}\n".format(bucket))
             for object in bucket_objects.get(bucket):
                 print("- {}".format(object.get('Key')))
 
