@@ -1,16 +1,21 @@
 import boto3
 from colorama import Fore, Style
 
-def get_user_name(session):
-    client = session.client('iam')
+def create_client(botoconfig, session):
+    client = session.client('iam', config=botoconfig)
+
+    return client
+
+def get_user_name(botoconfig, session):
+    client = create_client(botoconfig, session)
     username = client.get_user()['User']['UserName']
 
     return username
 
-def main(selected_session, session):
+def main(botoconfig, session):
     print("\n[+] Getting user name....")
     current_user = {}
-    username = get_user_name(session)
+    username = get_user_name(botoconfig, session)
 
     current_user['current_user'] = username
 

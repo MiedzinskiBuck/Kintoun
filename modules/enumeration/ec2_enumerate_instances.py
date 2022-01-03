@@ -1,10 +1,16 @@
 import boto3
+import botocore.exceptions
 from colorama import Fore, Style
 
-def list_instances(session, region):
+def create_client(botoconfig, session, region):
+    client = session.client('ec2', region_name=region, config=botoconfig)
+
+    return client
+
+def list_instances(botoconfig, session, region):
     try:
         print("[+] Enumerating Instances in {}".format(region))
-        client = session.client('ec2', region_name=region)
+        client = create_client(botoconfig, session, region)
         response = client.describe_instances(MaxResults=1000)
         instance_data = []
         for reservation in response['Reservations']:
@@ -19,8 +25,8 @@ def list_instances(session, region):
                             
         return instance_data
 
-    except Exception as e:
-        print(Fore.RED + e + Style.RESET_ALL)
+    except botocore.exceptions.ClientError as e:
+        print(Fore.RED + str(e) + Style.RESET_ALL)
 
 def parse_instance_data(instance_data):
     try:
@@ -33,7 +39,7 @@ def parse_instance_data(instance_data):
     except TypeError:
         pass
 
-def main(selected_session, session):
+def main(botoconfig, session):
     ec2_instances_data = []
 
     regions_file = open("data/regions.txt", "r")
@@ -44,14 +50,14 @@ def main(selected_session, session):
     selected_region = input("\n[+] Select region (Default All): ")
     if not selected_region:
         for region in regions:
-            instance_data = list_instances(session, region)
+            instance_data = list_instances(botoconfig, session, region)
             if instance_data:
                 ec2_instances_data.append(instance_data)
                 parse_instance_data(instance_data)
     elif selected_region not in regions:
         print("[-] Invalid Region...")
     else:
-        instance_data = list_instances(session, selected_region)
+        instance_data = list_instances(botoconfig, session, selected_region)
         if instance_data:
             ec2_instances_data.append(instance_data)
             parse_instance_data(instance_data)

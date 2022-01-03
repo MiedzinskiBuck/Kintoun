@@ -4,8 +4,9 @@ from functions import banner
 from functions import data_parser
 from functions import module_handler
 from functions import command_handler
-from botocore.exceptions import ProfileNotFound
+from functions import change_agent
 from colorama import Fore, Style
+from botocore.exceptions import ProfileNotFound
 
 def main():
     available_commands = ['modules', 'exit', 'use', 'help', 'run']
@@ -14,7 +15,9 @@ def main():
     module_action = module_handler.Modules()
     command_action = command_handler.Commands()
     parser = data_parser.Parser()
+    configuration = change_agent.Agent()
 
+    botoconfig = configuration.get_agent_config()
     selected_session = parser.session_select()
 
     profile = input("\n[+] Profile to be used: ")
@@ -49,7 +52,7 @@ def main():
                     break
 
                 elif check_cmd == "use" or check_cmd == "run":
-                    module_results = module_action.load_module(cmd, selected_session, session)
+                    module_results = module_action.load_module(cmd, botoconfig, session)
                     if module_results == None:
                         pass
                     else:
