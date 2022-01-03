@@ -1,11 +1,11 @@
 import boto3
 from colorama import Fore, Back, Style
 
-def generate_client(session):
-    client = session.client('s3')
+def create_client(botoconfig, session):
+    client = session.client('s3', config=botoconfig)
 
-    return client 
-    
+    return client
+
 def list_buckets(client):
     response = client.list_buckets()
 
@@ -36,8 +36,8 @@ def list_bucket_objects(client, bucket_names):
     
     return bucket_objects
 
-def main(selected_session, session):
-    client = generate_client(session)
+def main(botoconfig, session):
+    client = create_client(botoconfig, session)
 
     print("\n[+] Starting Bucket Enumeration...\n")
     bucket_data = list_buckets(client)

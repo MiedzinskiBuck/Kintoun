@@ -1,20 +1,23 @@
 import boto3
 import json
 
-def get_username(session):
-    client = session.client('iam')
+def create_client(botoconfig, session):
+    client = session.client('iam', config=botoconfig)
+
+    return client
+
+def get_username(client):
     username = client.get_user()['User']['UserName']
 
     return username
 
-def get_account_information(session):
+def get_account_information(client):
 
     user_details = []
     group_details = []
     role_details = []
     policy_details = []
 
-    client = session.client('iam')
     response = client.get_account_authorization_details()
 
     if response.get('UserDetailList'):
@@ -40,11 +43,12 @@ def get_account_information(session):
 
     return user_details, group_details, role_details, policy_details
 
-def main(selected_session, session):
+def main(botoconfig, session):
     print("\n[+] Starting Permissions Enumeration for current user....")
 
-    user_details, group_details, role_details, policy_details = get_account_information(session)
-    username = get_username(session)
+    client = create_client(botoconfig, session)
+    user_details, group_details, role_details, policy_details = get_account_information(client)
+    username = get_username(client)
 
     current_user = None
     
@@ -99,4 +103,5 @@ def main(selected_session, session):
 
     print("\n[+] Permissions Set...")
     print(json.dumps(policy_documents, indent=4, default=str))
+
     return policy_documents
