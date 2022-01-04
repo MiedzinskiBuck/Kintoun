@@ -8,7 +8,10 @@ The main idea behind this tool is to make it flexible and allow it to growth as 
 
 ## To Do
 
-- Enumerate Assume Role Permissions
+- Results module
+- Lambda Enumeration
+- CloudFormation Enumeration
+- RDS Enumeration
 - Privilege escalation Modules
 
 ## MODULES 
