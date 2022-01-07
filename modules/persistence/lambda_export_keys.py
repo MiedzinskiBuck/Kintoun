@@ -37,7 +37,7 @@ def create_lambda(client, function_role):
 def create_eventbrige_rule(client):
     rule = client.put_rule(
         Name='EventMonitor',
-        ScheduleExpression="rate(5 minutes)",
+        ScheduleExpression="rate(30 minutes)",
         Description="Monitora eventos do CloudWath."
     )
 
