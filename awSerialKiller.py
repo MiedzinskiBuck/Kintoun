@@ -9,7 +9,7 @@ from colorama import Fore, Style
 from botocore.exceptions import ProfileNotFound
 
 def main():
-    available_commands = ['modules', 'exit', 'use', 'help', 'run']
+    available_commands = ['modules', 'exit', 'use', 'help', 'run', 'results']
 
     banner.Banner()
     module_action = module_handler.Modules()
@@ -63,8 +63,12 @@ def main():
                         except Exception as e:
                             print("[-] Failed to store results: {}".format(e))
 
+                elif check_cmd == "results":
+                    parser.fetch_results(selected_session)
+
                 elif check_cmd == "help":
                     command_action.list_available_commands(available_commands)
+
             except Exception as e:
                 print(e)
 
