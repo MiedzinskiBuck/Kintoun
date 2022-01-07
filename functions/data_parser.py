@@ -65,3 +65,27 @@ class Parser:
         results_file = open(results_file_path, "w")
         json.dump(parsed_results, results_file, default=str)
         results_file.close()
+    
+    def fetch_results(self, selected_session):
+        print("\n[+] Fetching results...")
+        session_path = "./results/{}_session_data/".format(selected_session)
+
+        results_catalog = {}
+
+        available_results = os.listdir(session_path)
+        for result_category in available_results:
+            
+            results_catalog[result_category] = []
+
+            print("\n[+] Available results for {}".format(result_category))
+            try:
+                results = os.listdir(session_path + result_category) 
+                for runned_module in results:
+                    print(Fore.GREEN + runned_module + Style.RESET_ALL) 
+                    results_catalog[result_category].append(session_path + result_category + "/" + runned_module)
+            except NotADirectoryError:
+                pass
+        
+        print("\n================================================================================================")
+        print("[+] What result would you like to see?")
+        print(results_catalog)
