@@ -1,4 +1,5 @@
 import boto3
+from colorama import Fore, Style
 
 def create_client(botoconfig, session):
     client = session.client('SERVICE-CHANGE-THIS', config=botoconfig)
