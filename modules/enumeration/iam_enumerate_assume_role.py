@@ -2,13 +2,21 @@ import boto3
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_permissions
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate the assume role policy for the existing roles.")
+    print("\tIt will take advantage os the 'iam_enumerate_permissions' module.\n")
+
+    print("\tTo function, the module will load the 'iam_enumerate_permissions.get_account_information'")
+    print("\tand use the 'role_details' results to enumerate available roles.")
+    print("\tWith the available roles, it will enumerate the 'AssumeRolePolicyDocument' and show")
+    print("\twhich principal can enumerate which role...")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
 def create_client(botoconfig, session):
     client = session.client('iam', config=botoconfig)
     return client
-
-def help():
-    print("[+] This module will enumerate the assume role policy for the existing roles.")
-    print("[+] It will take advantage os the 'iam_enumerate_permissions' module.")
 
 def main(botoconfig, session):
     print("\n[+] Starting enumeration of Assume Role Policies on the account...")

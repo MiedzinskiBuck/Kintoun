@@ -42,3 +42,16 @@ class Modules:
 
         except ModuleNotFoundError:
             print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
+
+    def module_help(self, cmd):
+        cmd_arguments = cmd.split()
+
+        try:
+            module_path = "modules/{}".format(cmd_arguments[1])
+            module_path = module_path.replace('/', '.').replace('\\', '.')
+
+            module = importlib.import_module(module_path)
+            module_info = module.help()
+
+        except ModuleNotFoundError:
+            print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")

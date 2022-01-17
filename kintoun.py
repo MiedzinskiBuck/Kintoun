@@ -67,7 +67,7 @@ def main():
                     parser.fetch_results(selected_session)
 
                 elif check_cmd == "help":
-                    command_action.list_available_commands(available_commands)
+                    module_action.module_help(cmd)
 
             except Exception as e:
                 print(e)
