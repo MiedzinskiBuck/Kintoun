@@ -1,5 +1,13 @@
 import boto3
-import json
+import json 
+from colorama import Fore, Style
+
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate permissions for the current user.")
+    print("\tIt will gather information about roles, inline policies, groups and attached policies.\n")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def create_client(botoconfig, session):
     client = session.client('iam', config=botoconfig)

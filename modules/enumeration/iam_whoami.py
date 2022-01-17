@@ -1,6 +1,13 @@
 import boto3
 from colorama import Fore, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate the current user profile.")
+    print("\tIt will print the 'CurrentUser' information.\n")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    
 def create_client(botoconfig, session):
     client = session.client('iam', config=botoconfig)
 

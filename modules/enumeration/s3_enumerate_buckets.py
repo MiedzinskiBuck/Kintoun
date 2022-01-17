@@ -1,6 +1,17 @@
 import boto3
 from colorama import Fore, Back, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate the S3 buckets available in the account.")
+    print("\tIt will print the found buckets and give you the option to enumerate.")
+    print("\tthe objects on those buckets.\n")
+
+    print("\tIf you choose to enumerate objects on the found buckets, it will")
+    print("\tprint the list of objects from each bucket.")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
 def create_client(botoconfig, session):
     client = session.client('s3', config=botoconfig)
 

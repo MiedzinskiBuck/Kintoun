@@ -4,6 +4,21 @@ import os
 import zipfile
 from colorama import Fore, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will create a lambda persistency that will export the temporary credentials")
+    print("\tfor the role attached to it to a server of your choosing.\n")
+
+    print("[+] Module Functionality:\n")
+    print("\tThe module will ask you for an address of a server you control, the arn of a role to be")
+    print("\tpassed to the new lambda function and the region to create the lambda. It then will create")
+    print("\tthe lambda function and assign a trigger that will execute this function every 30 minutes.\n")
+
+    print("[+] IMPORTANT:\n")
+    print("\tYou need the 'iam:passrole' and 'lambda:create_function' permissions.")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
 def create_client(botoconfig, session, service, region="None"):
     if region == "None":
         region = None
