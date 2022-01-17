@@ -2,6 +2,17 @@ import boto3
 import botocore.exceptions
 from colorama import Fore, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate ec2 instances on the account.")
+    print("\tThe default options will enumerate ec2 instances in all regions.\n")
+
+    print("\tThe module will print available ec2 instances, status and, if available, its public ip.")
+    print("\tOn the stored results, it will store all available information about the ec2 instances,")
+    print("\tgiving you a complete description of all information found.")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
 def create_client(botoconfig, session, region):
     client = session.client('ec2', region_name=region, config=botoconfig)
 

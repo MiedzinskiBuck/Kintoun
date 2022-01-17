@@ -2,7 +2,15 @@ import boto3
 import requests
 import urllib.parse
 import json
+from colorama import Fore, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will create a link to be pasted on your browser to start")
+    print("\ta console session with the permissions of your selected profile.\n")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    
 def get_console_link(session):
 
     sts = session.client('sts')

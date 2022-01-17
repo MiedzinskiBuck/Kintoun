@@ -2,6 +2,20 @@ import boto3
 import os
 from colorama import Fore, Style
 
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will attempt to move lateraly on the account by assuming roles.")
+    print("\tYou will need to provide the account number that you want to move to, and a wordlist")
+    print("\twith the role names that you want the module to try to impersonate.\n")
+
+    print("[+] Module Functionality:\n")
+    print("\tThe module will use the provided account number an role wordlist to create an arn")
+    print("\tthat it will try to impersonate.")
+    print("\tIf the impersonation is successfull, the module will print the 'export' command required")
+    print("\tto use the new role identity and halt execution.")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
 def assume_role(session, role_name, acc_number, session_name):
     client = session.client('sts')
     try:
