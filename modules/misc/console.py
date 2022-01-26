@@ -11,9 +11,9 @@ def help():
     print("\ta console session with the permissions of your selected profile.\n")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     
-def get_console_link(session):
+def get_console_link(session, botoconfig):
 
-    sts = session.client('sts')
+    sts = session.client('sts', config=botoconfig)
 
     res = sts.get_federation_token(
         Name='AWSFederateLogin',
@@ -52,11 +52,11 @@ def get_console_link(session):
     url = 'https://signin.aws.amazon.com/federation?{}'.format(urllib.parse.urlencode(params))
     return(url)
 
-def main(selected_session, session):
+def main(botoconfig, session, selected_session):
     
     print("\n[+] Getting login information...\n")
     try:
-        console_link = get_console_link(session)
+        console_link = get_console_link(session, botoconfig)
         print("[+] Console Link: {}".format(console_link))
     except Exception as e:
         print(e)

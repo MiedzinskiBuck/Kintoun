@@ -28,7 +28,7 @@ class Modules:
                     else:
                         print("- {}/{}".format(module_category, module.strip(".py")))
     
-    def load_module(self, cmd, botoconfig, session):
+    def load_module(self, cmd, botoconfig, session, selected_session):
         cmd_arguments = cmd.split()
 
         try:
@@ -36,7 +36,7 @@ class Modules:
             module_path = module_path.replace('/', '.').replace('\\', '.')
 
             module = importlib.import_module(module_path)
-            module_info = module.main(botoconfig, session)
+            module_info = module.main(botoconfig, session, selected_session)
 
             return module_info
 

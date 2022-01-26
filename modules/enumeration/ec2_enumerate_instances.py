@@ -50,7 +50,7 @@ def parse_instance_data(instance_data):
     except TypeError:
         pass
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     ec2_instances_data = []
 
     regions_file = open("data/regions.txt", "r")

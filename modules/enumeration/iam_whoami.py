@@ -19,7 +19,7 @@ def get_user_name(botoconfig, session):
 
     return username
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     print("\n[+] Getting user name....")
     current_user = {}
     username = get_user_name(botoconfig, session)

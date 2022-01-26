@@ -52,7 +52,7 @@ def main():
                     break
 
                 elif check_cmd == "use" or check_cmd == "run":
-                    module_results = module_action.load_module(cmd, botoconfig, session)
+                    module_results = module_action.load_module(cmd, botoconfig, session, selected_session)
                     if module_results == None:
                         pass
                     else:
