@@ -18,7 +18,7 @@ def create_client(botoconfig, session):
     client = session.client('iam', config=botoconfig)
     return client
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     print("\n[+] Starting enumeration of Assume Role Policies on the account...")
     client = create_client(botoconfig, session)
     user_details, group_details, role_details, policy_details = iam_enumerate_permissions.get_account_information(client)

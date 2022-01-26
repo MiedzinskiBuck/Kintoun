@@ -51,7 +51,7 @@ def get_account_information(client):
 
     return user_details, group_details, role_details, policy_details
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     print("\n[+] Starting Permissions Enumeration for current user....")
 
     client = create_client(botoconfig, session)

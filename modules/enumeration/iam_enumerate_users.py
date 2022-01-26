@@ -19,7 +19,7 @@ def iam_enumerate_users(botoconfig, session):
 
     return response
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     users = iam_enumerate_users(botoconfig, session)
     for user in users["Users"]:
         print(Fore.GREEN + "\n[+] UserName: " + Style.RESET_ALL + "{}".format(user["UserName"]))

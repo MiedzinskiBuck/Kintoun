@@ -47,7 +47,7 @@ def list_bucket_objects(client, bucket_names):
     
     return bucket_objects
 
-def main(botoconfig, session):
+def main(botoconfig, session, selected_session):
     client = create_client(botoconfig, session)
 
     print("\n[+] Starting Bucket Enumeration...\n")
