@@ -6,6 +6,27 @@ from colorama import Fore, Back, Style
 
 class Parser:
 
+    def completion_data(self):
+        catalog = []
+
+        categories = os.listdir("./modules/")
+        for category in categories:
+            if category.upper == "__PYCACHE__" or category.upper() == "__INIT__":
+                pass
+            else:
+                try:
+                    modules = os.listdir("./modules/{}/".format(category))
+                    for module in modules:
+                        if module.upper() == "__PYCACHE__" or module.upper().startswith("__INIT__"):
+                            pass
+                        else:
+                            available_module = "{}/{}".format(category, module)
+                            catalog.append(available_module.replace(".py", ""))
+                except NotADirectoryError:
+                    pass
+        
+        return catalog
+    
     def session_select(self):
         session_name = ""
         try:
