@@ -103,25 +103,22 @@ def main():
         while True:
             try:
                 cmd = input("\nAWSerialKiller = [{}:{}] $ ".format(selected_session, profile))
-                check_cmd = cmd.lower().split()[0]
+                check_cmd = cmd.lower().split()
 
-                if check_cmd not in available_commands:
-                    print("\n[-] Unavailable command, type 'help' for a list of available commands.")
-
-                elif check_cmd == "modules":
+                if check_cmd[0] == "modules":
                     module_action.list_available_modules()
                             
-                elif check_cmd == "exit":
+                elif check_cmd[0] == "exit":
                     print("\nGoodbye!")
                     break
 
-                elif check_cmd == "use" or check_cmd == "run":
+                elif check_cmd[1] == "use" or check_cmd[1] == "run":
                     module_results = module_action.load_module(cmd, botoconfig, session, selected_session)
                     if module_results == None:
                         pass
                     else:
                         try:
-                            executed_module = cmd.lower().split()[1]
+                            executed_module = cmd.lower().split()[0]
                             parsed_module_results = parser.parse_module_results(executed_module, module_results)
                             parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
                         except Exception as e:
@@ -130,8 +127,11 @@ def main():
                 elif check_cmd == "results":
                     parser.fetch_results(selected_session)
 
-                elif check_cmd == "help":
+                elif check_cmd[1] == "help":
                     module_action.module_help(cmd)
+
+                else:
+                    print("\n[-] Unavailable command.")
 
             except Exception as e:
                 print(e)
