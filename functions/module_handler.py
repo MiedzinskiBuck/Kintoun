@@ -32,7 +32,7 @@ class Modules:
         cmd_arguments = cmd.split()
 
         try:
-            module_path = "modules/{}".format(cmd_arguments[1])
+            module_path = "modules/{}".format(cmd_arguments[0])
             module_path = module_path.replace('/', '.').replace('\\', '.')
 
             module = importlib.import_module(module_path)
@@ -47,7 +47,7 @@ class Modules:
         cmd_arguments = cmd.split()
 
         try:
-            module_path = "modules/{}".format(cmd_arguments[1])
+            module_path = "modules/{}".format(cmd_arguments[0])
             module_path = module_path.replace('/', '.').replace('\\', '.')
 
             module = importlib.import_module(module_path)
