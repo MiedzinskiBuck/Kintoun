@@ -4,9 +4,9 @@
 
 Tool to help in AWS testing. This project started as a way to learn more about AWS attacks.
 
-The main goal of this project is to learn more about AWS and attack paths. Eventually, it will become a tool to help automates tasks and expand to other platforms such as AZURE and Google Cloud Platform.
+The main goal behind this tool is to make it flexible and allow it to growth as new features and vulnerabilities are introduced into the AWS environment while keeping its code base simple.
 
-The main idea behind this tool is to make it flexible and allow it to growth as new features and vulnerabilities are introduced into the AWS environment while keeping its code base simple, but also beeing able to run its modules on their own with few modifications.
+All modules are designed to be able to run on their own or to be imported by other scripts with very little modification required. To run a module you need to basically call its "main()" function passing a botoconfig object, a session object and a session name that could be basically any string you wish.
 
 A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
 
@@ -16,7 +16,7 @@ A lot of this project is inspired by Pacu, from Rhino Security, which is one of 
 - Lambda Enumeration
 - CloudFormation Enumeration
 - RDS Enumeration
-- Privilege escalation Modules (WIP)
+- Start the privilege escalation scan (WIP)
 
 ## MODULES 
 
@@ -32,6 +32,8 @@ When you select a module to run, Kinto-un will dinamically load this module and 
 
 ### HOW TO CREATE A MODULE
 
-Once a module is selected **AWSerialKiller** will load this module in runtime and call its **main()** function, passing the current session to it. 
+Once a module is selected **KintoUn** will load this module in runtime and call its **main()** function, passing the current session to it. 
 
 In order to create a module, it is just a matter of creating a **main()** function that will receive the current session and perform other actions with this session's context.
+
+You can follow the "template.py" file to create a module.
