@@ -1,5 +1,9 @@
 import json
+import sys
+from sympy import EX
 import boto3
+import datetime 
+from dateutil.tz import tzutc
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_assume_role
 
@@ -40,13 +44,38 @@ def check_assumable_roles(botoconfig, session, selected_session):
     sage_maker_assumable_roles = []
     
     for role in assumable_roles:
-        if role['AssumeRolePolicyDocument']:
-            for principal in role['AssumeRolePolicyDocument']['Statement']:
-                if principal['Principal']['Service'] == 'lambda.amazonaws.com':
-                    sage_maker_assumable_roles.append(role['Arn'])
+        try:
+            if role['AssumeRolePolicyDocument']:
+                for principal in role['AssumeRolePolicyDocument']['Statement']:
+                    if principal['Principal']['Service'] == 'lambda.amazonaws.com':
+                        sage_maker_assumable_roles.append(role['Arn'])
+        except:
+            next
     
     return sage_maker_assumable_roles
-    
+
+def parse_assumable_role_option(role_list):
+    if role_list:
+        print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+        print("[+] Select Role:")
+        option = 0
+        role_options = {}
+        for role in role_list:
+            role = role.split("_")[0]
+            role_options[str(option)] = role 
+            print("{} - {}".format(str(option), role))
+            option += 1
+        selected_option = input("\nOption: ")
+        if not selected_option or selected_option not in role_options:
+            print("\n[-] No valid role selected...exiting...")
+            return False
+        selected_option = int(selected_option)
+        role_name = role_options[str(selected_option)]
+    else:
+        print("NO ROLE TO SELECT")
+
+    print(role_name)
+
 def create_notebook():
     # We create a notebook and pass the selected role to it
     pass
@@ -67,8 +96,7 @@ def main(botoconfig, session, selected_session):
     required_permissions = check_permissions(selected_session)
 
     if not required_permissions:
-        print("\n[-] KintoUn was not able to identity the required permissions...do you want to continue executing the module?")
-        option = input("[y/N] : ")
+        option = input("\n[-] KintoUn was not able to identity the required permissions...do you want to continue executing the module? [y/N]: ")
         if not option or option.lower() == "n":
             print("[-] Exiting module...")
             return 
@@ -76,3 +104,4 @@ def main(botoconfig, session, selected_session):
         print("[+] Permissions Found! Cheking Assumable Roles...")
     
     assumable_roles = check_assumable_roles(botoconfig, session, selected_session)
+    attack_role = parse_assumable_role_option(assumable_roles)
