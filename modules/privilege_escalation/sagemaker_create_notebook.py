@@ -15,13 +15,24 @@ def create_client(botoconfig, session, service):
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Module Description:\n")
-    print("\t")
+    print("\tThis module will attemp to create a new Jupyter Notebook with a role")
+    print("\tthat can be impersonated by SageMaker. If successfull, it will")
+    print("\tcreate a signed link to be used to login to this notebook.\n")
 
     print("[+] Module Functionality:\n")
-    print("\t")
+    print("\tThe module will try to check if the user has permissions to create a")
+    print("\tnotebook and a signed url. It will alert the user in case it don't find")
+    print("\tthose permissions.\n")
+    print("\tThen, it will enumerate a set of roles that can be used on the attack")
+    print("\tand try to create a notebook and a signed url passing this role to it.\n")
+    print("\tIf all goes well, you can log into the notebook and request credentials")
+    print("\tfrom the EC2 metadata on the notebook's terminal.\n")
 
     print("[+] IMPORTANT:\n")
-    print("\t")
+    print("\tSometimes your user/role can have the 'sagemaker':'*' permission, or the")
+    print("\tclassic '*':'*' permission. This will cause the module to not find the")
+    print("\trequired permissions to run. If that is the case, you can simply instruct")
+    print("\tto run anyway when prompet and all should be fine.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def check_permissions(selected_session):
