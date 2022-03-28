@@ -144,8 +144,6 @@ def main(botoconfig, session, selected_session):
             if not option or option.lower() == "n":
                 print("[-] Exiting module...")
                 return 
-        else:
-            print("[+] Permissions Found! Cheking Assumable Roles...")
        
         print("[+] Checking for roles that can be assumed by SageMaker...")
         assumable_roles = check_assumable_roles(botoconfig, session)
