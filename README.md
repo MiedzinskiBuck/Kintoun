@@ -12,11 +12,11 @@ A lot of this project is inspired by Pacu, from Rhino Security, which is one of 
 
 ## To Do
 
+- Start the privilege escalation scan (WIP)
 - Results module
 - Lambda Enumeration
 - CloudFormation Enumeration
 - RDS Enumeration
-- Start the privilege escalation scan (WIP)
 
 ## MODULES 
 
