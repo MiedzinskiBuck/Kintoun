@@ -26,6 +26,6 @@ def main(botoconfig, session, selected_session):
 
     current_user['current_user'] = username
 
-    print(Fore.GREEN + "\n[+] Current User: " + Style.RESET_ALL + "{}".format(current_user['current_user']))
+    print("[+] Current User: "+Fore.GREEN+"{}".format(current_user['current_user'])+Style.RESET_ALL)
 
     return current_user

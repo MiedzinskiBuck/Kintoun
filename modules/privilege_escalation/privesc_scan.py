@@ -45,7 +45,7 @@ def main(botoconfig, session, selected_session):
 
     permissions_file = permissions_enumeration_check(selected_session)
     if not permissions_file:
-        print("[-] "+Fore.Red+"No permission results found"+Style.RESET_ALL+"...make sure to run the 'iam_enumerate_permissions' module to enumerate permissions...")
+        print("[-] "+Fore.RED+"No permission results found"+Style.RESET_ALL+"...make sure to run the 'iam_enumerate_permissions' module to enumerate permissions...")
         return False 
 
     check_for_admin = administrator_check(permissions_file)
