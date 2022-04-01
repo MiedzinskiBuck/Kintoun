@@ -9,13 +9,15 @@ def create_client(botoconfig, session, region):
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Module Description:\n")
-    print("\t")
+    print("\tThis module will enumerate existing parameters on")
+    print("\tsystem manager. If they exists, it will print them")
+    print("\ton screen and stores the parameter details on the results")
+    print("\tfolder")
 
     print("[+] Module Functionality:\n")
-    print("\t")
+    print("\tThe module will ask on what region do you want to")
+    print("\trun it. The default option runs the module on all regions.")
 
-    print("[+] IMPORTANT:\n")
-    print("\t")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def get_optional_regions():
