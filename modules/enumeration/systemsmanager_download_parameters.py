@@ -48,7 +48,7 @@ def main(botoconfig, session, selected_session):
     region_option = get_optional_regions()
     if region_option:
         for region in region_option:
-            print("[+] Enumerating parameters for "+Fore.GREEN+"{}".format(region)+"...."+Style.RESET_ALL)
+            print("[+] Enumerating parameters for "+Fore.YELLOW+"{}".format(region)+"...."+Style.RESET_ALL)
             try:
                 ssm_parameters, ssm_client = list_ssm_parameters(botoconfig, session, region)
                 if ssm_parameters['Parameters'] == []:

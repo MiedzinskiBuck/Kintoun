@@ -26,7 +26,7 @@ def create_client(botoconfig, session, region):
     return client
 
 def list_target_secrets(botoconfig, session, region):
-    print("[+] Searching for secrets on the "+ Fore.GREEN + "{}".format(region) + Style.RESET_ALL + " region...")
+    print("[+] Searching for secrets on the "+ Fore.YELLOW+ "{}".format(region) + Style.RESET_ALL + " region...")
     try:
         client = create_client(botoconfig, session, region)
         response = client.list_secrets()
