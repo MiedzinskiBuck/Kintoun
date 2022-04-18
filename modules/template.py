@@ -1,9 +1,6 @@
 import boto3
 from colorama import Fore, Style
-
-def create_client(botoconfig, session):
-    client = session.client('SERVICE-CHANGE-THIS', config=botoconfig)
-    return client
+from functions import create_client
 
 # This is the help section. When used, it should print any help to the functionality of the module that may be necessary.
 def help():

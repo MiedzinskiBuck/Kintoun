@@ -1,13 +1,11 @@
-from hamcrest import none
 import boto3
 import json
-import sys
 from colorama import Fore, Style
+from functions import create_client
 
-def create_client(botoconfig, session, region):
-    client = session.client('ec2', config=botoconfig, region_name=region)
-
-    return client
+def create_ec2_client(botoconfig, session, region):
+    client = create_client.Client(botoconfig, session, 'ec2', region)
+    return client.create_aws_client()
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -73,7 +71,7 @@ def download_user_data(botoconfig, session, instance_id, ec2_data):
     region = region.split(".")
     instance_region = region[1]
 
-    client = create_client(botoconfig, session, instance_region)
+    client = create_ec2_client(botoconfig, session, instance_region)
 
     response = client.describe_instance_attribute(
         Attribute='userData',

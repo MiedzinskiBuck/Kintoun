@@ -1,6 +1,7 @@
 import boto3
 import os
 from colorama import Fore, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -17,7 +18,8 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def assume_role(session, role_name, acc_number, session_name, botoconfig):
-    client = session.client('sts', config=botoconfig)
+    client_config = create_client.Client(botoconfig, session, 'sts')
+    client = client_config.create_aws_client()
     try:
         response = client.assume_role(
                 RoleArn='arn:aws:iam::{}:role/{}'.format(acc_number, role_name),

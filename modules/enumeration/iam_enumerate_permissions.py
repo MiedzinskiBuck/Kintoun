@@ -1,6 +1,7 @@
 import boto3
 import json 
 from colorama import Fore, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -9,10 +10,9 @@ def help():
     print("\tIt will gather information about roles, inline policies, groups and attached policies.\n")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def create_client(botoconfig, session):
-    client = session.client('iam', config=botoconfig)
-
-    return client
+def create_iam_client(botoconfig, session):
+    client = create_client.Client(botoconfig, session, 'iam')
+    return client.create_aws_client()
 
 def get_username(client):
     username = client.get_user()['User']['UserName']
@@ -54,7 +54,7 @@ def get_account_information(client):
 def main(botoconfig, session, selected_session):
     print("\n[+] Starting Permissions Enumeration for current user....")
 
-    client = create_client(botoconfig, session)
+    client = create_iam_client(botoconfig, session)
     user_details, group_details, role_details, policy_details = get_account_information(client)
     username = get_username(client)
 

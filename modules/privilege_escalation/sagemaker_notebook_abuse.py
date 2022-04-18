@@ -1,10 +1,6 @@
 import boto3
 from colorama import Fore, Style
-
-def create_client(botoconfig, session):
-    region = input("Please specify a region to check for notebooks: ")
-    client = session.client('sagemaker', config=botoconfig, region_name=region)
-    return client
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -88,8 +84,8 @@ def main(botoconfig, session, selected_session):
                 return 
 
         print("[+] Checking for existing notebooks...")
-        sagemaker_client = create_client(botoconfig, session)
-        existing_notebooks = check_existing_notebooks(botoconfig, session, sagemaker_client)
+        sagemaker_client = create_client.Client(botoconfig, session, 'sagemaker')
+        existing_notebooks = check_existing_notebooks(botoconfig, session, sagemaker_client.create_aws_client())
         if not existing_notebooks:
             print("[-] There is "+Fore.RED+"no existing notebooks..."+Style.RESET_ALL+"This module requires an existing notebook to run..."+Style.RESET_ALL)
             return False

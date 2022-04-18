@@ -1,8 +1,10 @@
+from rx import create
 import boto3
 import requests
 import urllib.parse
 import json
 from colorama import Fore, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -13,7 +15,8 @@ def help():
     
 def get_console_link(session, botoconfig):
 
-    sts = session.client('sts', config=botoconfig)
+    client = create_client.Client(botoconfig, session, 'sts')
+    sts = client.create_aws_client()
 
     res = sts.get_federation_token(
         Name='AWSFederateLogin',
