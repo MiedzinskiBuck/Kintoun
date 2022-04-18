@@ -1,6 +1,7 @@
 import boto3
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_permissions
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -14,9 +15,9 @@ def help():
     print("\twhich principal can enumerate which role...")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def create_client(botoconfig, session):
-    client = session.client('iam', config=botoconfig)
-    return client
+def create_iam_client(botoconfig, session):
+    client = create_client.Client(botoconfig, session, 'iam')
+    return client.create_aws_client()
 
 def get_assumable_roles(client):
     user_details, group_details, role_details, policy_details = iam_enumerate_permissions.get_account_information(client)
@@ -31,7 +32,7 @@ def parse_results(role_details):
     
 def main(botoconfig, session, selected_session):
     print("\n[+] Starting enumeration of Assume Role Policies on the account...")
-    client = create_client(botoconfig, session)
+    client = create_iam_client(botoconfig, session)
     assumable_roles = get_assumable_roles(client)
 
     print("[+] Parsing results...")

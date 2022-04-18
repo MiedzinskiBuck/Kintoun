@@ -16,7 +16,6 @@ def help():
 
 def create_ec2_client(botoconfig, session, region):
     client = create_client.Client(botoconfig, session, "ec2", region)
-
     return client.create_aws_client()
 
 def list_instances(botoconfig, session, region):

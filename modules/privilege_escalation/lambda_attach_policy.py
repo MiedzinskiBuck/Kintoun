@@ -3,12 +3,13 @@ import boto3
 import zipfile
 from modules.enumeration import iam_whoami as whoami
 from modules.enumeration import iam_enumerate_assume_role
+from functions import create_client
 from colorama import Fore, Style
 from time import sleep
 
-def create_client(botoconfig, session, region):
-    client = session.client('lambda', config=botoconfig, region_name=region)
-    return client
+def create_lambda_client(botoconfig, session, region):
+    client = create_client.Client(botoconfig, session, 'lambda', region)
+    return client.create_aws_client()
 
 # This is the help section. When used, it should print any help to the functionality of the module that may be necessary.
 def help():
@@ -146,7 +147,7 @@ def main(botoconfig, session, selected_session):
 
     print("[+] Creating malicious lambda file...")
     region = input("[+] Select the region to create the lambda function: ")
-    lambda_client = create_client(botoconfig, session, region)
+    lambda_client = create_lambda_client(botoconfig, session, region)
     lambda_file = create_lambda_file(username['current_user'])
     if not lambda_file:
         return False

@@ -10,8 +10,7 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     
 def get_user_name(botoconfig, session):
-    service = 'iam'
-    client = create_client.Client(botoconfig, session, service)
+    client = create_client.Client(botoconfig, session, 'iam')
     iam_client = client.create_aws_client()
     username = iam_client.get_user()['User']['UserName']
 

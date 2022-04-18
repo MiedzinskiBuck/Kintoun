@@ -1,10 +1,11 @@
 import boto3
 from colorama import Fore, Style
 from functions import region_parser
+from functions import create_client
 
-def create_client(botoconfig, session, region):
-    client = session.client('ssm', config=botoconfig, region_name=region)
-    return client
+def create_ssm_client(botoconfig, session, region):
+    client = create_client.Client(botoconfig, session, 'ssm', region)
+    return client.create_aws_client()
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -27,7 +28,7 @@ def get_optional_regions():
     return optional_region 
 
 def list_ssm_parameters(botoconfig, session, region):
-    ssm_client = create_client(botoconfig, session, region)
+    ssm_client = create_ssm_client(botoconfig, session, region)
     response = ssm_client.describe_parameters() 
 
     return response, ssm_client

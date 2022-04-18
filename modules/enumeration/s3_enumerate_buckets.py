@@ -1,5 +1,6 @@
 import boto3
 from colorama import Fore, Back, Style
+from functions import create_client
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -12,10 +13,10 @@ def help():
     print("\tprint the list of objects from each bucket.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def create_client(botoconfig, session):
-    client = session.client('s3', config=botoconfig)
+def create_s3_client(botoconfig, session):
+    client = create_client.Client(botoconfig, session, 's3')
 
-    return client
+    return client.create_aws_client()
 
 def list_buckets(client):
     response = client.list_buckets()
@@ -48,7 +49,7 @@ def list_bucket_objects(client, bucket_names):
     return bucket_objects
 
 def main(botoconfig, session, selected_session):
-    client = create_client(botoconfig, session)
+    client = create_s3_client(botoconfig, session)
 
     print("\n[+] Starting Bucket Enumeration...\n")
     bucket_data = list_buckets(client)
