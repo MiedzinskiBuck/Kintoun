@@ -33,5 +33,4 @@ You can follow the "template.py" file to create a module.
 ## To Do
 
 - Results module
-- Lambda Enumeration (WIP)
 - CloudFormation Enumeration
