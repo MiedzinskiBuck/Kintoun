@@ -4,7 +4,12 @@ import botocore
 from colorama import Fore, Style
 
 class Agent:
-    def get_agent_config(self):
+
+    """"This class has the mains goal to check if the system which KintoUn is running on...
+    If it detects a Parrot, Pentoo or a Kali system, it will randomly change the user agent 
+    to one of the user agents on the 'data/user_agents.txt' list..."""
+
+    def __new__(self):
         user_agents_file = open("data/user_agents.txt", "r")
         safe_user_agents = user_agents_file.read().splitlines()
 

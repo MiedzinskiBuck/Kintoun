@@ -88,7 +88,6 @@ class Parser:
         results_file.close()
     
     def fetch_results(self, selected_session):
-        print("\n[+] Fetching results...")
         session_path = "./results/{}_session_data/".format(selected_session)
 
         results_catalog = {}

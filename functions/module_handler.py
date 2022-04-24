@@ -14,9 +14,6 @@ class Modules:
             except NotADirectoryError:
                 pass
 
-        print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-        print(Fore.YELLOW + "AVAILABLE MODULES" + Style.RESET_ALL)
-        print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
         for module_category in catalog:
             if module_category.upper() == "__PYCACHE__" or module_category.upper() == "__INIT__":
                 pass
@@ -40,8 +37,8 @@ class Modules:
 
             return module_info
 
-        except ModuleNotFoundError:
-            print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
+        except ModuleNotFoundError as module_not_found:
+            raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
     def module_help(self, cmd):
         cmd_arguments = cmd.split()
@@ -54,4 +51,4 @@ class Modules:
             module_info = module.help()
 
         except ModuleNotFoundError:
-            print("\n[-] Module not found...\n[-] Type 'modules' for a list of available modules...")
+            raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")

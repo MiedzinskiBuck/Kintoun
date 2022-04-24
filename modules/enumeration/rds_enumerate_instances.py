@@ -20,8 +20,7 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def get_optional_regions():
-    region = region_parser.Region()
-    optional_region = region.region_select()
+    optional_region = region_parser.Region()
 
     return optional_region
 
