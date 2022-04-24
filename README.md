@@ -1,7 +1,8 @@
-# KINTOUN
 <p align="left">
     <img src="https://user-images.githubusercontent.com/41388860/164986870-09e9890c-1633-4ecc-9dda-64be2b11761e.png"/>
 </p>
+
+#
 
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
 
@@ -10,6 +11,17 @@ Tool designed to help in Cloud Security testing. This project started as a way t
 At the moment, KintoUn only provides support for AWS environments so this documentation will focus on the AWS aspect of the tool. Once it starts to implement other Cloud Providers, the propper changes will be done to this document.
 
 A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework for AWS Environments, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
+
+## Installation
+
+KintoUn is a python3 tool so, to use it you will need to have "Python3" installed on your machine and install the required packages.
+
+```
+sudo apt-get install python3
+git clone https://github.com/MiedzinskiBuck/Kintoun.git
+cd Kintoun
+pip3 install -r requirements.txt
+```
 
 ## Description
 
