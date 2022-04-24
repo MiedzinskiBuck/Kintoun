@@ -1,4 +1,7 @@
 # KINTOUN
+<p align="left">
+    <img src="https://user-images.githubusercontent.com/41388860/164986870-09e9890c-1633-4ecc-9dda-64be2b11761e.png"/>
+</p>
 
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
 
