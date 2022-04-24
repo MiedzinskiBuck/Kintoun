@@ -37,25 +37,34 @@ The "Session Name" is a way for ***KintoUn*** to be able to distinguish between 
 
 ## MODULES 
 
-To facilitate parsing, all modules main functions receives at least a "selected_session", which will be used to store results and the actual "session", which will be used to create a boto3 client.
+To facilitate parsing, all modules main functions receives a "selected_session" parameter, which is the "Session Name" and will be used to store all module's results, the actual "session" object, and a botoconfig object. The botoconfig and session objects can be passed to the "create_client" function to create a client to perform the API Calls.
 
-The tools is "module based" which means that we have a main program that dinamically loads the required modules to run.
+To create a client, if you started your module using the provided template, all you need to do is to instantiate a "Client()" object passing the botoconfig objetc, the session object, the service name and, optionally, the region to make the calls. Then, with the client configuration set, you can call the "create_aws_client()" function to receive the actual client object.
 
-The modules will follow a template that will allow each module to be loaded and ran by demmand.
+***Example:***
+```
+client = create_client.Client(botoconfig, session, 'iam')
+iam_client = client.create_aws_client()
+```
+Now you can use the "iam_client" object to perform API Calls related to the "iam" service.
+
+This tool is "module based" which means that we have a main program that dinamically loads the required modules to run, so you can customize it with your own modules or even use those modules in another program.
+
+The modules will follow a template that will ease developing of new modules and allow for some standardization.
 
 ### MAIN Function
 
 When you select a module to run, Kinto-un will dinamically load this module and call it's "main" function, that will then orchestrate the remaining of the actions to be perform and, if applicable, return the results of the module to be parsed and then stored for further analysis.
 
-### HOW TO CREATE A MODULE
+### HELP Function
 
-Once a module is selected **KintoUn** will load this module in runtime and call its **main()** function, passing the current session to it. 
-
-In order to create a module, it is just a matter of creating a **main()** function that will receive the current session and perform other actions with this session's context.
-
-You can follow the "template.py" file to create a module.
+Allong with the "main()" function, ***KintoUn's*** modules also provide a "help" section that should explain what each module can do. When developing new modules, please do create this code section to help users understand what the created module can do and what are the consequences of running that module, if any.
 
 ## To Do
 
 - Results module
-- CloudFormation Enumeration
+    - Currently the results are stored on disk and can only be readed manually or on screen when its module is ran. I want to create a functionality that allows you to fetch a module's results from within the program.
+- Enumeration Modules
+    - Finish to create enumeration modules. Although this is an ongoing task, I believe that we need to cover at least the main services that AWS has to offer before releasing a version of the Tool.
+- Cloud Providers Support
+    - KintoUn's main goal is to become a Cloud Testing tool and, to do so, it must provide support for other Cloud Providers than AWS. Currently, it only supports AWS Testing.
