@@ -53,6 +53,11 @@ def main():
                     print(Fore.YELLOW + "================================================================================================\n" + Style.RESET_ALL)
                     command_handler.Commands(available_commands)
  
+                elif check_cmd[0] == "results":
+                    print("[-] Module not yet implemented...you can use 'cat' to see the module's results at the 'results' folder...")
+                    #print("\n[+] Fetching results...")
+                    #parser.fetch_results(selected_session)
+
                 elif check_cmd[0] == "exit":
                     print("\nGoodbye!")
                     break
@@ -68,10 +73,6 @@ def main():
                             parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
                         except Exception as e:
                             print("[-] Failed to store results: {}".format(e))
-
-                elif check_cmd == "results":
-                    print("\n[+] Fetching results...")
-                    parser.fetch_results(selected_session)
 
                 elif check_cmd[1] == "help":
                     module_action.module_help(cmd)

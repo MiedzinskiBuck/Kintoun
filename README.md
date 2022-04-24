@@ -10,14 +10,6 @@ All modules are designed to be able to run on their own or to be imported by oth
 
 A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
 
-## To Do
-
-- Improve the client creation function (Versatility about its arguments)
-- Results module
-- Lambda Enumeration
-- CloudFormation Enumeration
-- RDS Enumeration (WIP)
-
 ## MODULES 
 
 To facilitate parsing, all modules main functions receives at least a "selected_session", which will be used to store results and the actual "session", which will be used to create a boto3 client.
@@ -37,3 +29,9 @@ Once a module is selected **KintoUn** will load this module in runtime and call 
 In order to create a module, it is just a matter of creating a **main()** function that will receive the current session and perform other actions with this session's context.
 
 You can follow the "template.py" file to create a module.
+
+## To Do
+
+- Results module
+- Lambda Enumeration (WIP)
+- CloudFormation Enumeration
