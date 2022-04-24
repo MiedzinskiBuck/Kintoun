@@ -5,13 +5,21 @@
 
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
 
-Tool to help in AWS testing. This project started as a way to learn more about AWS attacks.
+Tool designed to help in Cloud Security testing. This project started as a way to learn more about AWS attacks.
 
-The main goal behind this tool is to make it flexible and allow it to growth as new features and vulnerabilities are introduced into the AWS environment while keeping its code base simple.
+A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework for AWS Environments, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
 
-All modules are designed to be able to run on their own or to be imported by other scripts with very little modification required. To run a module you need to basically call its "main()" function passing a botoconfig object, a session object and a session name that could be basically any string you wish.
+## Description
 
-A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
+The main goal behind this tool is to make it flexible and allow it to growth as new features and vulnerabilities are introduced into Cloud Environments while keeping its code base simple. That is the main reason that the tool follows a "modular" approach, where the desired modules are loaded dinamically and can also be used on its on for a more customized approach.
+
+Since all modules are designed to be able to run on their own, they can be imported by other scripts with very little modification needed. To run a module, you need to basically call its "main()" function passing a botoconfig object, a session object and a session name that could be basically any string you wish. More about what each object represents on the following sections.
+
+### Botoconfig Object
+
+### Session Object
+
+### Session Name
 
 ## MODULES 
 
