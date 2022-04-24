@@ -8,9 +8,7 @@ def main():
 
     banner.Banner()
     module_action = module_handler.Modules()
-    command_action = command_handler.Commands()
     parser = data_parser.Parser()
-    configuration = change_agent.Agent()
     
     comp = completer.Completer()
 
@@ -18,33 +16,43 @@ def main():
     readline.parse_and_bind("tab: complete")
     readline.set_completer(comp.complete)
 
-    botoconfig = configuration.get_agent_config()
-    selected_session = parser.session_select()
-
-    profile = input("\n[+] Profile to be used: ")
-
-    if not profile:
-        profile = "default"
+    botoconfig = change_agent.Agent()
 
     try:
-        session = boto3.Session(profile_name=profile)
-    except ProfileNotFound:
-        print("[-] Profile not found... exiting...")
-        sys.exit()
+        selected_session = parser.session_select()
 
-    print("\n[+] Using profile: " + Fore.GREEN + "{}\n".format(profile) + Style.RESET_ALL)
-    print("[+] Ready to begin! Type 'modules' for a list of available modules.")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+        profile = input("\n[+] Profile to be used: ")
 
-    try:
+        if not profile:
+            profile = "default"
+
+        try:
+            session = boto3.Session(profile_name=profile)
+        except ProfileNotFound:
+            print("[-] Profile not found... exiting...")
+            sys.exit()
+
+        print("\n[+] Using profile: " + Fore.GREEN + "{}\n".format(profile) + Style.RESET_ALL)
+        print("[+] Ready to begin! Type 'modules' for a list of available modules.")
+        print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
         while True:
             try:
                 cmd = input("\nAWSerialKiller = [{}:{}] $ ".format(selected_session, profile))
                 check_cmd = cmd.lower().split()
 
                 if check_cmd[0] == "modules":
+                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "AVAILABLE MODULES" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
                     module_action.list_available_modules()
                             
+                elif check_cmd[0] == "commands":        
+                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "AVAILABLE COMMANDS" + Style.RESET_ALL)
+                    print(Fore.YELLOW + "================================================================================================\n" + Style.RESET_ALL)
+                    command_handler.Commands(available_commands)
+ 
                 elif check_cmd[0] == "exit":
                     print("\nGoodbye!")
                     break
@@ -62,6 +70,7 @@ def main():
                             print("[-] Failed to store results: {}".format(e))
 
                 elif check_cmd == "results":
+                    print("\n[+] Fetching results...")
                     parser.fetch_results(selected_session)
 
                 elif check_cmd[1] == "help":

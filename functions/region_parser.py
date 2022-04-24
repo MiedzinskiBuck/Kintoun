@@ -1,6 +1,5 @@
-
 class Region():
-    def region_select(self):
+    def __new__(self):
         regions_file = open("data/regions.txt", "r")
         regions = regions_file.read().splitlines()
         print("[+] Available Regions...\n")

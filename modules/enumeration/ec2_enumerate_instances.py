@@ -2,6 +2,7 @@ import boto3
 import botocore.exceptions
 from colorama import Fore, Style
 from functions import create_client
+from functions import region_parser
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -17,6 +18,11 @@ def help():
 def create_ec2_client(botoconfig, session, region):
     client = create_client.Client(botoconfig, session, "ec2", region)
     return client.create_aws_client()
+
+def get_optional_regions():
+    optional_region = region_parser.Region()
+
+    return optional_region 
 
 def list_instances(botoconfig, session, region):
     try:
@@ -53,26 +59,13 @@ def parse_instance_data(instance_data):
 def main(botoconfig, session, selected_session):
     ec2_instances_data = []
 
-    regions_file = open("data/regions.txt", "r")
-    regions = regions_file.read().splitlines()
-    print("\n[+] Available Regions...\n")
-    for region in regions:
-        print("- {}".format(region))
-    selected_region = input("\n[+] Select region (Default All): ")
-    if not selected_region:
-        for region in regions:
+    region_option = get_optional_regions()
+
+    if region_option:
+        for region in region_option:
             instance_data = list_instances(botoconfig, session, region)
             if instance_data:
                 ec2_instances_data.append(instance_data)
                 parse_instance_data(instance_data)
-    elif selected_region not in regions:
-        print("[-] Invalid Region...")
-    else:
-        instance_data = list_instances(botoconfig, session, selected_region)
-        if instance_data:
-            ec2_instances_data.append(instance_data)
-            parse_instance_data(instance_data)
-    
-    regions_file.close()
 
     return ec2_instances_data
