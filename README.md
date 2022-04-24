@@ -49,6 +49,8 @@ The "Session Name" is a way for ***KintoUn*** to be able to distinguish between 
 
 ## MODULES 
 
+All modules are stored on the "modules" directory, and they have a name convention starting with the service name, followed by the module purpose, i.e. "ec2_enumerate_instances".
+
 To facilitate parsing, all modules main functions receives a "selected_session" parameter, which is the "Session Name" and will be used to store all module's results, the actual "session" object, and a botoconfig object. The botoconfig and session objects can be passed to the "create_client" function to create a client to perform the API Calls.
 
 To create a client, if you started your module using the provided template, all you need to do is to instantiate a "Client()" object passing the botoconfig objetc, the session object, the service name and, optionally, the region to make the calls. Then, with the client configuration set, you can call the "create_aws_client()" function to receive the actual client object.
