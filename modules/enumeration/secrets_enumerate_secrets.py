@@ -6,7 +6,7 @@ from functions import create_client
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Module Description:\n")
-    print("\tThis module will try to enumerate existing secrets, decrypt the and show the results.")
+    print("\tThis module will try to enumerate existing secrets, decrypt them and show the results.")
     print("\tSecrets Manager associates every secret with a KMS key, so this module will try to")
     print("\tenumerate those keys as well.")
 
