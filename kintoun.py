@@ -3,19 +3,10 @@ from functions import banner, data_parser, module_handler, command_handler, chan
 from colorama import Fore, Style
 from botocore.exceptions import ProfileNotFound
 
-def main():
+def aws():
     available_commands = ['modules', 'exit', 'use', 'help', 'run', 'results']
-
-    banner.Banner()
     module_action = module_handler.Modules()
     parser = data_parser.Parser()
-
-    comp = completer.Completer()
-
-    readline.set_completer_delims(' \t\n;')
-    readline.parse_and_bind("tab: complete")
-    readline.set_completer(comp.complete)
-
     botoconfig = change_agent.Agent()
 
     try:
@@ -85,6 +76,22 @@ def main():
 
     except (KeyboardInterrupt):
             print("\n\nGoodbye!")
+
+#def azure():
+    # To be implemented
+
+#def gcp():
+    # To be implemented
+
+def main():
+
+    banner.Banner()
+    comp = completer.Completer()
+    readline.set_completer_delims(' \t\n;')
+    readline.parse_and_bind("tab: complete")
+    readline.set_completer(comp.complete)
+
+    aws()
 
 if __name__ == "__main__":
     main()
