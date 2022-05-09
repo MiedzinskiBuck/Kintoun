@@ -7,14 +7,11 @@ from functions import region_parser
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Module Description:\n")
-    print("\t")
+    print("\tThis module will enumerate lambda functions from a given region.")
+    print("\tIt will print the ARN of those functions and store its details on the results folder.")
 
     print("[+] Module Functionality:\n")
-    print("\t")
-
-    print("[+] IMPORTANT:\n")
-    print("\t")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    print("\tJust run the module and select which region you want to enumerate.")
 
 def create_lambda_client(botoconfig, session, region):
     client = create_client.Client(botoconfig, session, 'lambda', region)

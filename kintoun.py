@@ -2,14 +2,14 @@ import boto3, sys, readline
 from functions import banner, data_parser, module_handler, command_handler, change_agent, completer
 from colorama import Fore, Style
 from botocore.exceptions import ProfileNotFound
-        
+
 def main():
     available_commands = ['modules', 'exit', 'use', 'help', 'run', 'results']
 
     banner.Banner()
     module_action = module_handler.Modules()
     parser = data_parser.Parser()
-    
+
     comp = completer.Completer()
 
     readline.set_completer_delims(' \t\n;')
@@ -38,7 +38,7 @@ def main():
 
         while True:
             try:
-                cmd = input("\nAWSerialKiller = [{}:{}] $ ".format(selected_session, profile))
+                cmd = input("\nKintoUn = [{}:{}] $ ".format(selected_session, profile))
                 check_cmd = cmd.lower().split()
 
                 if check_cmd[0] == "modules":
@@ -46,13 +46,13 @@ def main():
                     print(Fore.YELLOW + "AVAILABLE MODULES" + Style.RESET_ALL)
                     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
                     module_action.list_available_modules()
-                            
-                elif check_cmd[0] == "commands":        
+
+                elif check_cmd[0] == "commands":
                     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
                     print(Fore.YELLOW + "AVAILABLE COMMANDS" + Style.RESET_ALL)
                     print(Fore.YELLOW + "================================================================================================\n" + Style.RESET_ALL)
                     command_handler.Commands(available_commands)
- 
+
                 elif check_cmd[0] == "results":
                     print("[-] Module not yet implemented...you can use 'cat' to see the module's results at the 'results' folder...")
                     #print("\n[+] Fetching results...")
