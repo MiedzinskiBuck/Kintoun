@@ -10,6 +10,7 @@ class Agent:
     to one of the user agents on the 'data/user_agents.txt' list..."""
 
     def __new__(self):
+        print("[+] Checking User Agent...\n")
         user_agents_file = open("data/user_agents.txt", "r")
         safe_user_agents = user_agents_file.read().splitlines()
 

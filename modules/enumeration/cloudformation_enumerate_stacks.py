@@ -35,18 +35,21 @@ def list_stacks(botoconfig, session, region):
             stack_data = client.list_stacks(NextToken=stack_data['NextToken'])
             stack_list.append(stack_data)
                             
-        return stack_data 
+        return stack_list
 
     except botocore.exceptions.ClientError as e:
         print(Fore.RED + str(e) + Style.RESET_ALL)
     pass
 
 def parse_stack_information(stack_list):
-    for stack in stack_list:
+    for stack in stack_list[0]:
         for summary in stack['StackSummaries']:
-            print("\t[+] Stack ID = "+Fore.GREEN+"{}".format(summary['StackId']) + Style.RESET_ALL)
-            print("\t[+] Stack Name = "+Fore.GREEN+"{}".format(summary['StackName']) + Style.RESET_ALL)
-            print("\t[+] Stack Status = "+Fore.GREEN+"{}\n".format(summary['StackStatus']) + Style.RESET_ALL)
+            print("\t[+] Stack ID = {}".format(summary['StackId']))
+            print("\t[+] Stack Name = {}".format(summary['StackName']))
+            if summary['StackStatus'] == "CREATE_COMPLETE":
+                print("\t[+] Stack Status = "+Fore.GREEN+"{}\n".format(summary['StackStatus']) + Style.RESET_ALL)
+            else:
+                print("\t[+] Stack Status = "+Fore.YELLOW+"{}\n".format(summary['StackStatus']) + Style.RESET_ALL)
 
 def main(botoconfig, session, selected_session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
