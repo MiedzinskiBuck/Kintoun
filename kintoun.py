@@ -1,97 +1,59 @@
-import boto3, sys, readline
-from functions import banner, data_parser, module_handler, command_handler, change_agent, completer
+import argparse
+from functions import banner, change_agent, credential_handler
 from colorama import Fore, Style
-from botocore.exceptions import ProfileNotFound
 
-def aws():
-    available_commands = ['modules', 'exit', 'use', 'help', 'run', 'results']
-    module_action = module_handler.Modules()
-    parser = data_parser.Parser()
-    botoconfig = change_agent.Agent()
+class Program:
+    def __init__(self, args):
+        self.args = args
+        self.user_agent = self.args.user_agent
+        self.profile = self.args.profile
+        self.config()
 
-    try:
-        selected_session = parser.session_select()
+    def config(self):
+        if self.user_agent == None:
+            self.botoconfig = change_agent.Agent()
 
-        profile = input("\n[+] Profile to be used: ")
+    def run(self):
+        print("On Run function")
+        print(self.botoconfig)
+        print(self.args.arguments)
 
-        if not profile:
-            profile = "default"
+    def console(self):
+        print("On Console function")
+        profile = credential_handler.Credential(self.profile)
+        
 
-        try:
-            session = boto3.Session(profile_name=profile)
-        except ProfileNotFound:
-            print("[-] Profile not found... exiting...")
-            sys.exit()
-
-        print("\n[+] Using profile: " + Fore.GREEN + "{}\n".format(profile) + Style.RESET_ALL)
-        print("[+] Ready to begin! Type 'modules' for a list of available modules.")
-        print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-
-        while True:
-            try:
-                cmd = input("\nKintoUn = [{}:{}] $ ".format(selected_session, profile))
-                check_cmd = cmd.lower().split()
-
-                if check_cmd[0] == "modules":
-                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "AVAILABLE MODULES" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-                    module_action.list_available_modules()
-
-                elif check_cmd[0] == "commands":
-                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "AVAILABLE COMMANDS" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "================================================================================================\n" + Style.RESET_ALL)
-                    command_handler.Commands(available_commands)
-
-                elif check_cmd[0] == "results":
-                    print("[-] Module not yet implemented...you can use 'cat' to see the module's results at the 'results' folder...")
-                    #print("\n[+] Fetching results...")
-                    #parser.fetch_results(selected_session)
-
-                elif check_cmd[0] == "exit":
-                    print("\nGoodbye!")
-                    break
-
-                elif check_cmd[1] == "use" or check_cmd[1] == "run":
-                    module_results = module_action.load_module(cmd, botoconfig, session, selected_session)
-                    if module_results == None:
-                        pass
-                    else:
-                        try:
-                            executed_module = cmd.lower().split()[0]
-                            parsed_module_results = parser.parse_module_results(executed_module, module_results)
-                            parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
-                        except Exception as e:
-                            print("[-] Failed to store results: {}".format(e))
-
-                elif check_cmd[1] == "help":
-                    module_action.module_help(cmd)
-
-                else:
-                    print("\n[-] Unavailable command.")
-
-            except Exception as e:
-                print(e)
-
-    except (KeyboardInterrupt):
-            print("\n\nGoodbye!")
-
-#def azure():
-    # To be implemented
-
-#def gcp():
-    # To be implemented
-
-def main():
-
+if __name__ == '__main__':
     banner.Banner()
-    comp = completer.Completer()
-    readline.set_completer_delims(' \t\n;')
-    readline.parse_and_bind("tab: complete")
-    readline.set_completer(comp.complete)
 
-    aws()
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument('--user-agent', '-u')
+    parent_parser.add_argument('--profile', '-p', nargs='?', const='default')
+    parent_parser.add_argument('--access-key')
+    parent_parser.add_argument('--secret-access-key')
 
-if __name__ == "__main__":
-    main()
+    #parent_parser.add_argument('--argument', '-a', type=argparse.FileType('r'))     // In case I need to load a wordlist
+    #parent_parser.add_argument('--argument', '-a', default='DefaultValue')     // In case I need to set a default value for an argument
+
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(title='commands', dest='command')
+
+    module_parser = subparser.add_parser('run', help='Run the selected module', parents = [parent_parser])
+    module_parser.add_argument('--module', '-m', help='Select a module to run', required=True)
+    module_parser.add_argument('--arguments', '-a', help='Module arguments')
+
+    console_parser = subparser.add_parser('console', help='Create a console link', parents = [parent_parser])
+    
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        exit()
+    
+    p = Program(args)
+
+    if args.command == 'run':
+        p.run()
+    elif args.command == 'console':
+        p.console()
+
