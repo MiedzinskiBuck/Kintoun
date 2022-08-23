@@ -1,5 +1,5 @@
 import argparse
-from functions import banner, change_agent, credential_handler
+from functions import banner, change_agent, credential_handler, create_client
 from colorama import Fore, Style
 
 class Program:
@@ -7,21 +7,32 @@ class Program:
         self.args = args
         self.user_agent = self.args.user_agent
         self.profile = self.args.profile
+        self.aws_access_key_id = self.args.access_key
+        self.aws_secret_access_key = self.args.secret_access_key
+        self.aws_session_token = self.args.session_token
         self.config()
 
     def config(self):
         if self.user_agent == None:
             self.botoconfig = change_agent.Agent()
 
+    def parseCredentials(self):
+        provided_credentials = {
+            "aws_access_key_id": self.aws_access_key_id, 
+            "aws_secret_access_key": self.aws_secret_access_key, 
+            "aws_session_token": self.aws_session_token, 
+            "profile": self.profile
+        }
+
+        credentials = credential_handler.Credential(provided_credentials)
+        return credentials.session
+
     def run(self):
         print("On Run function")
-        print(self.botoconfig)
-        print(self.args.arguments)
+        session = self.parseCredentials()
 
     def console(self):
         print("On Console function")
-        profile = credential_handler.Credential(self.profile)
-        
 
 if __name__ == '__main__':
     banner.Banner()
@@ -29,8 +40,10 @@ if __name__ == '__main__':
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument('--user-agent', '-u')
     parent_parser.add_argument('--profile', '-p', nargs='?', const='default')
+    parent_parser.add_argument('--environment', '-e', nargs='?')
     parent_parser.add_argument('--access-key')
     parent_parser.add_argument('--secret-access-key')
+    parent_parser.add_argument('--session-token')
 
     #parent_parser.add_argument('--argument', '-a', type=argparse.FileType('r'))     // In case I need to load a wordlist
     #parent_parser.add_argument('--argument', '-a', default='DefaultValue')     // In case I need to set a default value for an argument
@@ -56,4 +69,3 @@ if __name__ == '__main__':
         p.run()
     elif args.command == 'console':
         p.console()
-
