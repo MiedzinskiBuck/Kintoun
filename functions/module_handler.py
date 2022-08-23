@@ -25,21 +25,6 @@ class Modules:
                     else:
                         print("- {}/{}".format(module_category, module.strip(".py")))
     
-    def load_module(self, cmd, botoconfig, session, selected_session):
-        cmd_arguments = cmd.split()
-
-        try:
-            module_path = "modules/{}".format(cmd_arguments[0])
-            module_path = module_path.replace('/', '.').replace('\\', '.')
-
-            module = importlib.import_module(module_path)
-            module_info = module.main(botoconfig, session, selected_session)
-
-            return module_info
-
-        except ModuleNotFoundError as module_not_found:
-            raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
-
     def module_help(self, cmd):
         cmd_arguments = cmd.split()
 

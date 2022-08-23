@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import os
 from functions import banner, change_agent, credential_handler, create_client
 from colorama import Fore, Style
 
@@ -29,7 +30,10 @@ class Program:
         return credentials.session
 
     def run(self):
-        print("On Run function")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print(f"Running /{self.args.category}/{self.args.module} module...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
         session = self.parseCredentials()
         try:
             module_path = f"modules/{self.args.category}/{self.args.module}"
@@ -41,11 +45,39 @@ class Program:
             raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
     def console(self):
-        print("On Console function")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print("Creating console link...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
         session = self.parseCredentials()
         console_module_path = "modules.misc.console"
         console_module = importlib.import_module(console_module_path)
         self.module_info = console_module.main(self.botoconfig, session)
+    
+    def list_modules(self):
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print("Listing available modules...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
+        catalog = {}
+        categories = os.listdir("./modules/")
+        for category in categories:
+            try:
+                modules = os.listdir("./modules/{}/".format(category))
+                catalog[category] = modules
+            except NotADirectoryError:
+                pass
+
+        for module_category in catalog:
+            if module_category.upper() == "__PYCACHE__" or module_category.upper() == "__INIT__":
+                pass
+            else:
+                print(Fore.GREEN + "\n{}\n".format(module_category.upper()) + Style.RESET_ALL)
+                for module in catalog[module_category]:
+                    if module.upper() == "__PYCACHE__" or module.strip(".py").upper() == "__INIT__":
+                        pass
+                    else:
+                        print("- {}/{}".format(module_category, module.strip(".py")))
 
 if __name__ == '__main__':
     banner.Banner()
@@ -67,6 +99,7 @@ if __name__ == '__main__':
     module_parser.add_argument('--arguments', '-a', help='Module arguments')
 
     console_parser = subparser.add_parser('console', help='Create a console link', parents = [parent_parser])
+    list_parser = subparser.add_parser('list', help='List available Modules', parents = [parent_parser])
     
     args = parser.parse_args()
 
@@ -80,3 +113,5 @@ if __name__ == '__main__':
         p.run()
     elif args.command == 'console':
         p.console()
+    elif args.command == 'list':
+        p.list_modules()
