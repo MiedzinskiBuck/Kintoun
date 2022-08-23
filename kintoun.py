@@ -1,4 +1,5 @@
 import argparse
+import importlib
 from functions import banner, change_agent, credential_handler, create_client
 from colorama import Fore, Style
 
@@ -30,9 +31,21 @@ class Program:
     def run(self):
         print("On Run function")
         session = self.parseCredentials()
+        try:
+            module_path = f"modules/{self.args.category}/{self.args.module}"
+            module_path = module_path.replace('/', '.').replace('\\', '.')
+
+            module = importlib.import_module(module_path)
+            self.module_info = module.main(self.botoconfig, session)
+        except ModuleNotFoundError as module_not_found:
+            raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
     def console(self):
         print("On Console function")
+        session = self.parseCredentials()
+        console_module_path = "modules.misc.console"
+        console_module = importlib.import_module(console_module_path)
+        self.module_info = console_module.main(self.botoconfig, session)
 
 if __name__ == '__main__':
     banner.Banner()
@@ -45,13 +58,11 @@ if __name__ == '__main__':
     parent_parser.add_argument('--secret-access-key')
     parent_parser.add_argument('--session-token')
 
-    #parent_parser.add_argument('--argument', '-a', type=argparse.FileType('r'))     // In case I need to load a wordlist
-    #parent_parser.add_argument('--argument', '-a', default='DefaultValue')     // In case I need to set a default value for an argument
-
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='commands', dest='command')
 
     module_parser = subparser.add_parser('run', help='Run the selected module', parents = [parent_parser])
+    module_parser.add_argument('--category', '-c', help='Select a category to run', required=True)
     module_parser.add_argument('--module', '-m', help='Select a module to run', required=True)
     module_parser.add_argument('--arguments', '-a', help='Module arguments')
 

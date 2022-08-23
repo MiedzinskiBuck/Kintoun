@@ -56,7 +56,7 @@ def parse_instance_data(instance_data):
     except TypeError:
         pass
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     ec2_instances_data = []
 
     region_option = get_optional_regions()
