@@ -29,7 +29,7 @@ def get_lambda_function_list(botosession, session, region):
 
     return response
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting Lambda Function Enumeration module...")
     print("[+] Select region to retrieve functions...")
@@ -40,7 +40,7 @@ def main(botoconfig, session, selected_session):
 
     if region_option:
         for region in region_option:
-            print("[+] Enumerating lambda functions for "+Fore.YELLOW+"{}".format(region)+"...."+Style.RESET_ALL)
+            print("[+] Enumerating lambda functions for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
             try:
                 lambda_functions = get_lambda_function_list(botoconfig, session, region)
                 if lambda_functions['Functions'] == []:

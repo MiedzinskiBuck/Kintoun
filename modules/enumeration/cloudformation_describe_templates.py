@@ -39,14 +39,14 @@ def get_stack_template(cloudformation_client, stack_id):
     except:
         return False
     
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting CloudFormation Describe Templates module...")
 
     print("[+] Retrieving Stacks Template...")
 
     stack_id = input("Stack Arn: ")
-    region = input("Stack Region: ")
+    region = stack_id.split(":")[3]
 
     cloudformation_client = create_cloudformation_client(botoconfig, session, region)
 

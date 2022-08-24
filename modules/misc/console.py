@@ -1,4 +1,3 @@
-from rx import create
 import boto3
 import requests
 import urllib.parse
@@ -55,7 +54,7 @@ def get_console_link(session, botoconfig):
     url = 'https://signin.aws.amazon.com/federation?{}'.format(urllib.parse.urlencode(params))
     return(url)
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     
     print("\n[+] Getting login information...\n")
     try:

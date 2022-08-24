@@ -1,97 +1,117 @@
-import boto3, sys, readline
-from functions import banner, data_parser, module_handler, command_handler, change_agent, completer
+import argparse
+import importlib
+import os
+from functions import banner, change_agent, credential_handler, create_client
 from colorama import Fore, Style
-from botocore.exceptions import ProfileNotFound
 
-def aws():
-    available_commands = ['modules', 'exit', 'use', 'help', 'run', 'results']
-    module_action = module_handler.Modules()
-    parser = data_parser.Parser()
-    botoconfig = change_agent.Agent()
+class Program:
+    def __init__(self, args):
+        self.args = args
+        self.user_agent = self.args.user_agent
+        self.profile = self.args.profile
+        self.aws_access_key_id = self.args.access_key
+        self.aws_secret_access_key = self.args.secret_access_key
+        self.aws_session_token = self.args.session_token
+        self.config()
 
-    try:
-        selected_session = parser.session_select()
+    def config(self):
+        if self.user_agent == None:
+            self.botoconfig = change_agent.Agent()
 
-        profile = input("\n[+] Profile to be used: ")
+    def parseCredentials(self):
+        provided_credentials = {
+            "aws_access_key_id": self.aws_access_key_id, 
+            "aws_secret_access_key": self.aws_secret_access_key, 
+            "aws_session_token": self.aws_session_token, 
+            "profile": self.profile
+        }
 
-        if not profile:
-            profile = "default"
+        credentials = credential_handler.Credential(provided_credentials)
+        return credentials.session
 
+    def run(self):
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print("Running "+Fore.GREEN+f"/{self.args.category}/{self.args.module}"+Style.RESET_ALL+" module...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
+        session = self.parseCredentials()
         try:
-            session = boto3.Session(profile_name=profile)
-        except ProfileNotFound:
-            print("[-] Profile not found... exiting...")
-            sys.exit()
+            module_path = f"modules/{self.args.category}/{self.args.module}"
+            module_path = module_path.replace('/', '.').replace('\\', '.')
 
-        print("\n[+] Using profile: " + Fore.GREEN + "{}\n".format(profile) + Style.RESET_ALL)
-        print("[+] Ready to begin! Type 'modules' for a list of available modules.")
-        print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+            module = importlib.import_module(module_path)
+            self.module_info = module.main(self.botoconfig, session)
+        except ModuleNotFoundError as module_not_found:
+            raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
-        while True:
+    def console(self):
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print("Creating console link...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
+        session = self.parseCredentials()
+        console_module_path = "modules.misc.console"
+        console_module = importlib.import_module(console_module_path)
+        self.module_info = console_module.main(self.botoconfig, session)
+    
+    def list_modules(self):
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        print("Listing available modules...")
+        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
+        catalog = {}
+        categories = os.listdir("./modules/")
+        for category in categories:
             try:
-                cmd = input("\nKintoUn = [{}:{}] $ ".format(selected_session, profile))
-                check_cmd = cmd.lower().split()
+                modules = os.listdir("./modules/{}/".format(category))
+                catalog[category] = modules
+            except NotADirectoryError:
+                pass
 
-                if check_cmd[0] == "modules":
-                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "AVAILABLE MODULES" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-                    module_action.list_available_modules()
-
-                elif check_cmd[0] == "commands":
-                    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "AVAILABLE COMMANDS" + Style.RESET_ALL)
-                    print(Fore.YELLOW + "================================================================================================\n" + Style.RESET_ALL)
-                    command_handler.Commands(available_commands)
-
-                elif check_cmd[0] == "results":
-                    print("[-] Module not yet implemented...you can use 'cat' to see the module's results at the 'results' folder...")
-                    #print("\n[+] Fetching results...")
-                    #parser.fetch_results(selected_session)
-
-                elif check_cmd[0] == "exit":
-                    print("\nGoodbye!")
-                    break
-
-                elif check_cmd[1] == "use" or check_cmd[1] == "run":
-                    module_results = module_action.load_module(cmd, botoconfig, session, selected_session)
-                    if module_results == None:
+        for module_category in catalog:
+            if module_category.upper() == "__PYCACHE__" or module_category.upper() == "__INIT__":
+                pass
+            else:
+                print(Fore.GREEN + "\n{}\n".format(module_category.upper()) + Style.RESET_ALL)
+                for module in catalog[module_category]:
+                    if module.upper() == "__PYCACHE__" or module.strip(".py").upper() == "__INIT__":
                         pass
                     else:
-                        try:
-                            executed_module = cmd.lower().split()[0]
-                            parsed_module_results = parser.parse_module_results(executed_module, module_results)
-                            parser.store_parsed_results(selected_session, executed_module, parsed_module_results)
-                        except Exception as e:
-                            print("[-] Failed to store results: {}".format(e))
+                        print("- {}/{}".format(module_category, module.strip(".py")))
 
-                elif check_cmd[1] == "help":
-                    module_action.module_help(cmd)
-
-                else:
-                    print("\n[-] Unavailable command.")
-
-            except Exception as e:
-                print(e)
-
-    except (KeyboardInterrupt):
-            print("\n\nGoodbye!")
-
-#def azure():
-    # To be implemented
-
-#def gcp():
-    # To be implemented
-
-def main():
-
+if __name__ == '__main__':
     banner.Banner()
-    comp = completer.Completer()
-    readline.set_completer_delims(' \t\n;')
-    readline.parse_and_bind("tab: complete")
-    readline.set_completer(comp.complete)
 
-    aws()
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument('--user-agent', '-u')
+    parent_parser.add_argument('--profile', '-p', nargs='?', const='default')
+    parent_parser.add_argument('--environment', '-e', nargs='?')
+    parent_parser.add_argument('--access-key')
+    parent_parser.add_argument('--secret-access-key')
+    parent_parser.add_argument('--session-token')
 
-if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(title='commands', dest='command')
+
+    module_parser = subparser.add_parser('run', help='Run the selected module', parents = [parent_parser])
+    module_parser.add_argument('--category', '-c', help='Select a category to run', required=True)
+    module_parser.add_argument('--module', '-m', help='Select a module to run', required=True)
+    module_parser.add_argument('--arguments', '-a', help='Module arguments')
+
+    console_parser = subparser.add_parser('console', help='Create a console link', parents = [parent_parser])
+    list_parser = subparser.add_parser('list', help='List available Modules', parents = [parent_parser])
+    
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        exit()
+    
+    p = Program(args)
+
+    if args.command == 'run':
+        p.run()
+    elif args.command == 'console':
+        p.console()
+    elif args.command == 'list':
+        p.list_modules()

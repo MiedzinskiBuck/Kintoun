@@ -51,7 +51,7 @@ def parse_stack_information(stack_list):
             else:
                 print("\t[+] Stack Status = "+Fore.YELLOW+"{}\n".format(summary['StackStatus']) + Style.RESET_ALL)
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting CloudFormation Stack Enumeration module...")
     print("[+] Select region to retrieve stacks...")
