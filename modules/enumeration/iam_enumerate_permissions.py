@@ -51,7 +51,7 @@ def get_account_information(client):
 
     return user_details, group_details, role_details, policy_details
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print("\n[+] Starting Permissions Enumeration for current user....")
 
     client = create_iam_client(botoconfig, session)
@@ -62,7 +62,7 @@ def main(botoconfig, session, selected_session):
     
     for user in user_details:
         if user['UserName'] == username:
-            print("[+] Found User: {}".format(user['UserName']))
+            print("[+] Found User: "+Fore.GREEN+"{}".format(user['UserName']+Style.RESET_ALL))
             current_user = user
             break
 

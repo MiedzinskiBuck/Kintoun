@@ -40,7 +40,7 @@ def get_parameter_value(ssm_client, parameter_name):
     
     return response
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting Systems Manager Parameters enumeration module...")
     print("[+] Select region to retrieve parameters...")
@@ -50,7 +50,7 @@ def main(botoconfig, session, selected_session):
     region_option = get_optional_regions()
     if region_option:
         for region in region_option:
-            print("[+] Enumerating parameters for "+Fore.YELLOW+"{}".format(region)+"...."+Style.RESET_ALL)
+            print("[+] Enumerating parameters for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"...")
             try:
                 ssm_parameters, ssm_client = list_ssm_parameters(botoconfig, session, region)
                 if ssm_parameters['Parameters'] == []:

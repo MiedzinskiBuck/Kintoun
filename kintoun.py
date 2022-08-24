@@ -31,7 +31,7 @@ class Program:
 
     def run(self):
         print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print(f"Running /{self.args.category}/{self.args.module} module...")
+        print("Running "+Fore.GREEN+f"/{self.args.category}/{self.args.module}"+Style.RESET_ALL+" module...")
         print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
 
         session = self.parseCredentials()

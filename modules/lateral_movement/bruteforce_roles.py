@@ -49,6 +49,7 @@ def brute_role(session, botoconfig):
 
     for role_name in role_names:
         arn = "[+] Trying to impersonate role = arn:aws:iam::{}:role/{}".format(acc_number, role_name.strip())
+        print(arn)
 
         AssumeRole = assume_role(session, role_name.strip(), acc_number, session_name, botoconfig)
         
@@ -63,7 +64,7 @@ def brute_role(session, botoconfig):
             print("export AWS_SESSION_TOKEN={}".format(AssumeRole["Credentials"]["SessionToken"]))
             break
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     print("[+] Starting Bruteforce Roles Module...\n")
 

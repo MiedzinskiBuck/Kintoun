@@ -94,7 +94,7 @@ def assign_trigger(client, function_name, rule_arn):
 
     return response
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     results = {}
 
     print("[+] Starting persistence module...")

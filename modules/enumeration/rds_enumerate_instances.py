@@ -30,7 +30,7 @@ def get_rds_instance_list(botosession, session, region):
 
     return response
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting RDS Enumeration module...")
     print("[+] Select region to retrieve instances...")
@@ -41,7 +41,7 @@ def main(botoconfig, session, selected_session):
 
     if region_option:
         for region in region_option:
-            print("[+] Enumerating RDS instances for "+Fore.YELLOW+"{}".format(region)+"...."+Style.RESET_ALL)
+            print("[+] Enumerating RDS instances for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
             try:
                 rds_instances = get_rds_instance_list(botoconfig, session, region)
                 if rds_instances['DBInstances'] == []:

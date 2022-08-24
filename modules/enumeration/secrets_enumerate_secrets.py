@@ -62,7 +62,7 @@ def parse_secrets_value(botoconfig, secrets_data, session):
 
     return secrets_data_list
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print("\n[+] Starting Secrets Enumeration...")
 
     secrets_data_list = {}

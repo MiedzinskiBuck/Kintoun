@@ -51,7 +51,10 @@ def parse_instance_data(instance_data):
             print(Fore.GREEN + "\n[+] Instance ID = {}".format(instance['InstanceId']) + Style.RESET_ALL)
             print(Fore.GREEN + "[+] Instance Status = {}".format(instance['State']['Name']) + Style.RESET_ALL)
             if instance['State']['Name'] == "running":
-                print(Fore.GREEN + "[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']) + Style.RESET_ALL)
+                try:
+                    print(Fore.GREEN + "[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']) + Style.RESET_ALL)
+                except:
+                    print(Fore.RED + "[-] Can't access the instances IP address...")
             print("")
     except TypeError:
         pass

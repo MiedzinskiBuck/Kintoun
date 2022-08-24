@@ -30,7 +30,7 @@ def parse_results(role_details):
             for principal in role['AssumeRolePolicyDocument']['Statement']:
                 print(Fore.YELLOW + "\t{}".format(principal['Principal']) + Style.RESET_ALL)
     
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print("\n[+] Starting enumeration of Assume Role Policies on the account...")
     client = create_iam_client(botoconfig, session)
     assumable_roles = get_assumable_roles(client)

@@ -44,11 +44,11 @@ def list_bucket_objects(client, bucket_names):
 
         while response['IsTruncated']:
             reponse = client.list_objects_v2(Bucket=bucket, MaxKeys=1000, ContinuationToken=response['NextContinuationToken'])
-            bucket_objects[bucket].extend(response['Contains'])
+            bucket_objects[bucket].extend(response['Contents'])
     
     return bucket_objects
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     client = create_s3_client(botoconfig, session)
 
     print("\n[+] Starting Bucket Enumeration...\n")
@@ -56,7 +56,7 @@ def main(botoconfig, session, selected_session):
     bucket_names = parse_bucket_data(bucket_data)
 
     for bucket in bucket_names:
-        print(Fore.GREEN + "[+] Bucket Name: " + Style.RESET_ALL + "{}".format(bucket))
+        print("[+] Bucket Name: "+Fore.GREEN+"{}".format(bucket)+Style.RESET_ALL)
 
     print("\n[-] Do you want to enumerate objects in those buckets?")
     enumerate_objects = input("[-] WARNING: This could generate a lot of traffic [N/y]: ")
