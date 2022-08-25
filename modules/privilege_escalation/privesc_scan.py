@@ -1,3 +1,5 @@
+# WORK IN PROGRESS
+
 import boto3
 from colorama import Fore, Style
 
@@ -13,9 +15,9 @@ def help():
     print("\t")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def permissions_enumeration_check(selected_session):
+def permissions_enumeration_check():
     try:
-        permission_results_file = "./results/{}_session_data/iam/iam_enumerate_permissions_results.json".format(selected_session)
+        permission_results_file = "./results/{}_session_data/iam/iam_enumerate_permissions_results.json".format()
         results_file = open(permission_results_file, "r").read()
         return results_file
     except:
@@ -33,14 +35,9 @@ def sagemaker_notebook_abuse_check(enumerated_permissions):
     if "sagemaker:ListNotebookInstances" in enumerated_permissions and "sagemaker:CreatePresignedNotebookInstanceUrl" in enumerated_permissions:
         return True
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting privilege escalation scan module...\n")
-
-    permissions_file = permissions_enumeration_check(selected_session)
-    if not permissions_file:
-        print("[-] "+Fore.RED+"No permission results found"+Style.RESET_ALL+"...make sure to run the 'iam_enumerate_permissions' module to enumerate permissions...")
-        return False 
 
     check_for_admin = administrator_check(permissions_file)
     if check_for_admin:
