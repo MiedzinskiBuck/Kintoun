@@ -13,3 +13,6 @@ At the moment, KintoUn only provides support for AWS environments so this docume
 A lot of this project is inspired by Pacu, from Rhino Security, which is one of the best offensive AWS tools that is out there. If you are looking for a full testing framework for AWS Environments, make sure to check their [Github repo](https://github.com/RhinoSecurityLabs/pacu) out.
 
 Please refer to the [Wiki](https://github.com/MiedzinskiBuck/Kintoun/wiki) for more information about the Tool's features.
+
+## ToDo
+- Fix function that assign layer to lambda. Right now is only sleeping for 15 seconds but ideally it would check if the lambda status is as "created".
