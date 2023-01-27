@@ -19,5 +19,5 @@ KintoUn is an interactive script, so if you want to use docker to run it, follow
 
 ```
 docker built -t kintoun [myrepo]
-docker run -i kintoun [ARGUMENTS]
+docker run -i miedzinski/kintoun [ARGUMENTS]
 ```
