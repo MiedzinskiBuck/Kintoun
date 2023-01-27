@@ -14,5 +14,10 @@ A lot of this project is inspired by Pacu, from Rhino Security, which is one of 
 
 Please refer to the [Wiki](https://github.com/MiedzinskiBuck/Kintoun/wiki) for more information about the Tool's features.
 
-## ToDo
-- Fix function that assign layer to lambda. Right now is only sleeping for 15 seconds but ideally it would check if the lambda status is as "created".
+## Running With Docker
+KintoUn is an interactive script, so if you want to use docker to run it, follow those steps:
+
+```
+docker built -t kintoun [myrepo]
+docker run -i kintoun [ARGUMENTS]
+```
