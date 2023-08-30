@@ -1,5 +1,4 @@
-import boto3
-from functions import create_client
+from functions import iam_handler 
 from colorama import Fore, Style
 
 def help():
@@ -8,18 +7,12 @@ def help():
     print("\tThis module will enumerate the current user profile.")
     print("\tIt will print the 'CurrentUser' information.\n")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-    
-def get_user_name(botoconfig, session):
-    client = create_client.Client(botoconfig, session, 'iam')
-    iam_client = client.create_aws_client()
-    username = iam_client.get_user()['User']['UserName']
-
-    return username
 
 def main(botoconfig, session):
+    iam = iam_handler.IAM(botoconfig, session)
     print("\n[+] Getting user name....")
     current_user = {}
-    username = get_user_name(botoconfig, session)
+    username = iam.whoami()
 
     current_user['current_user'] = username
 
