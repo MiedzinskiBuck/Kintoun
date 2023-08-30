@@ -12,12 +12,11 @@ def help():
 
 def main(botoconfig, session):
     iam = iam_handler.IAM(botoconfig, session)
-    parser = utils.Utils()
     print("\n[+] Starting Permissions Enumeration for current user...")
 
     user_details, group_details, role_details, policy_details = iam.get_account_information()
     username = iam.whoami()
-    policy_documents = parser.parse_account_information(username, user_details, group_details, role_details, policy_details)
+    policy_documents = utils.parse_account_information(username, user_details, group_details, role_details, policy_details)
 
     print("[+] Permission Set...")
     print(json.dumps(policy_documents, indent=4, default=str))
