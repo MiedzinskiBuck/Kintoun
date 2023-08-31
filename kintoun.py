@@ -1,7 +1,7 @@
 import argparse
 import importlib
 import os
-from functions import banner, change_agent, credential_handler, create_client
+from functions import banner, change_agent, credential_handler
 from colorama import Fore, Style
 
 class Program:
@@ -25,8 +25,8 @@ class Program:
             "aws_session_token": self.aws_session_token, 
             "profile": self.profile
         }
-
         credentials = credential_handler.Credential(provided_credentials)
+
         return credentials.session
 
     def run(self):
@@ -38,10 +38,10 @@ class Program:
         try:
             module_path = f"modules/{self.args.category}/{self.args.module}"
             module_path = module_path.replace('/', '.').replace('\\', '.')
-
             module = importlib.import_module(module_path)
             self.module_info = module.main(self.botoconfig, session)
-        except ModuleNotFoundError as module_not_found:
+
+        except ModuleNotFoundError:
             raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
     def console(self):

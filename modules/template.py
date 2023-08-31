@@ -15,7 +15,7 @@ def help():
     print("\t")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-# The main function will orchestrate the functionality of the module. The idea is that it will call whatever needs calling and retur the results from the module to be parsed and stored.
+# The main function will orchestrate the functionality of the module. The idea is that it will call whatever needs calling and returns the results from the module to be parsed and stored.
 # It will be called from the main program with the botoconfig, that changes the user agent, and the session, which stores the profile credentials to be used.
 def main(botoconfig, session, selected_session):
     # module code, calls, etc...
