@@ -46,4 +46,4 @@ def main(botoconfig, session):
         message = sqs.read_messages(q_url)
         print("\n")
         print(message)
-        time.sleep(2)
+        #time.sleep(2)
