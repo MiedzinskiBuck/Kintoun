@@ -1,11 +1,7 @@
 import boto3
 import json
 from colorama import Fore, Style
-from functions import create_client
-
-def create_ec2_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'ec2', region)
-    return client.create_aws_client()
+from functions import ec2_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -21,99 +17,41 @@ def help():
     print("\tThis module depends on the 'ec2_enumerate_instances' module.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def fetch_enumeration_results(selected_session):
-    try:
-        enumeration_results_file = "./results/{}_session_data/ec2/ec2_enumerate_instances_results.json".format(selected_session)
-        results_file = open(enumeration_results_file, 'r')
-        results = json.load(results_file)
+def get_optional_regions():
+    optional_region = utils.region_parser()
 
-        return results
+    return optional_region 
 
-    except Exception:
-        print(Fore.RED + "[-] No EC2 data found, please run the 'enumeration/ec2_enumerate_instances' module..." + Style.RESET_ALL)
-
-def parse_enumeration_results(results):
-    instance_ids = []
-
-    for result_list in results['ec2']:
-        for instance_list in result_list:
-            for instance in instance_list:
-                instance_ids.append(instance['InstanceId'])
+def get_user_data(ec2, instance_data):
+    user_data = {}
+    for instance in instance_data:
+        data = ec2.describe_attributes('userData', instance['InstanceId'])
+        user_data[instance['InstanceId']] = data['UserData']['Value']
     
-    return instance_ids
-
-def parse_options(instance_ids):
-    if instance_ids:
-            print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
-            print("[+] Select Instances:\n")
-            option = 1
-            instance_options = {}
-            for instance_id in instance_ids:
-                instance_options[str(option)] = instance_id
-                print("{} - {}".format(str(option), instance_id))
-                option += 1
-            selected_option = input("\nSelect Instance [Default=ALL]: ")
-            if not selected_option:
-                return instance_ids
-            else:
-                selected_instance = instance_options[str(selected_option)]
-                return selected_instance
-
-def download_user_data(botoconfig, session, instance_id, ec2_data):
-    region = ""
-
-    for result_list in ec2_data['ec2']:
-        for instance_list in result_list:
-            for instance in instance_list:
-                if instance['InstanceId'] == instance_id:
-                    region = instance['PrivateDnsName']
-    
-    region = region.split(".")
-    instance_region = region[1]
-
-    client = create_ec2_client(botoconfig, session, instance_region)
-
-    response = client.describe_instance_attribute(
-        Attribute='userData',
-        DryRun=False,
-        InstanceId=instance_id
-    )
-
-    return response
-
-def parse_user_data(selected_session, user_data):
-    print("\n[+] Available User Data:")
-
-    available_data = []
-
-    for data in user_data:
-        instance_user_data = data['UserData']['Value']
-        available_data.append(instance_user_data)
-        print("\n[+] User data for " + Fore.GREEN + "{}".format(data['InstanceId']) + Style.RESET_ALL + " : {}".format(instance_user_data))
-
-    results_path = './results/{}_session_data/ec2/ec2_download_user_data_results.json'.format(selected_session)
-    print("\n[+] Done! Check " + Fore.GREEN + "{}".format(results_path) + Style.RESET_ALL + " for the results")
-
-def main(botoconfig, session, selected_session):
-    user_data = []
-
-    available_ec2 = fetch_enumeration_results(selected_session)
-    if not available_ec2:
-
-        return None
-
-    instance_ids = parse_enumeration_results(available_ec2)
-    selected_option = parse_options(instance_ids)
-    if isinstance(selected_option, list):
-        for instance in selected_option:
-            data = download_user_data(botoconfig, session, instance, available_ec2)
-            if data['UserData']:
-                user_data.append(data)
-    else:
-        data = download_user_data(botoconfig, session, selected_option, available_ec2)
-        if data['UserData']:
-            user_data.append(data)
-
-    parse_user_data(selected_session, user_data)
-
     return user_data
+
+def main(botoconfig, session):
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Starting EC2 user data download...")
+    region_option = get_optional_regions()
+
+    for region in region_option:
+        print(f"[+] Enumerating Instances in {Fore.GREEN}{region}{Style.RESET_ALL}")
+        ec2 = ec2_handler.EC2(botoconfig, session, region)
+        instances = ec2.describe_instances()
+        instance_data = []
+        if instances:
+            for reservation in instances['Reservations']:
+                if reservation.get('Instances'):
+                    instance_data.extend(reservation['Instances'])
+
+                    while instances.get('NextToken'):
+                        instances = ec2.describe_instances(instances['NextToken'])
+                        for reservation in instances['Reservations']:
+                            if reservation.get('Instances'):
+                                instance_data.extend(reservation['Instances'])
+            
+            if instance_data:
+                print("[+] Instances Found! Retrieving user data...")
+                user_data = get_user_data(ec2, instance_data)
+                print(user_data)
