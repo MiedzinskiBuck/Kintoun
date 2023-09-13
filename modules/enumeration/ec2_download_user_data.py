@@ -1,5 +1,3 @@
-import boto3
-import json
 from colorama import Fore, Style
 from functions import ec2_handler, utils
 

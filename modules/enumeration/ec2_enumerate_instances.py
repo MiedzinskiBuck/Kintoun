@@ -1,8 +1,5 @@
-import boto3
-import botocore.exceptions
 from colorama import Fore, Style
-from functions import create_client
-from functions import region_parser
+from functions import ec2_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -15,60 +12,32 @@ def help():
     print("\tgiving you a complete description of all information found.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def create_ec2_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, "ec2", region)
-    return client.create_aws_client()
-
 def get_optional_regions():
-    optional_region = region_parser.Region()
+    optional_region = utils.region_parser()
 
     return optional_region 
 
-def list_instances(botoconfig, session, region):
-    try:
-        print("[+] Enumerating Instances in {}".format(region))
-        client = create_ec2_client(botoconfig, session, region)
-        response = client.describe_instances(MaxResults=1000)
-        instance_data = []
-        for reservation in response['Reservations']:
-            if reservation.get('Instances'):
-                instance_data.extend(reservation['Instances'])
-
-                while response.get('NextToken'):
-                    response = client.describe_instances(MaxResults=1000, NextToken=response['NextToken'])
-                    for reservation in response['Reservations']:
-                        if reservation.get('Instances'):
-                            instance_data.extend(reservation['Instances'])
-                            
-        return instance_data
-
-    except botocore.exceptions.ClientError as e:
-        print(Fore.RED + str(e) + Style.RESET_ALL)
-
-def parse_instance_data(instance_data):
-    try:
-        for instance in instance_data:
-            print(Fore.GREEN + "\n[+] Instance ID = {}".format(instance['InstanceId']) + Style.RESET_ALL)
-            print(Fore.GREEN + "[+] Instance Status = {}".format(instance['State']['Name']) + Style.RESET_ALL)
-            if instance['State']['Name'] == "running":
-                try:
-                    print(Fore.GREEN + "[+] Public Address = {}".format(instance['NetworkInterfaces'][0]['Association']['PublicIp']) + Style.RESET_ALL)
-                except:
-                    print(Fore.RED + "[-] Can't access the instances IP address...")
-            print("")
-    except TypeError:
-        pass
-
 def main(botoconfig, session):
-    ec2_instances_data = []
-
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Starting EC2 enumeration...")
     region_option = get_optional_regions()
 
-    if region_option:
-        for region in region_option:
-            instance_data = list_instances(botoconfig, session, region)
-            if instance_data:
-                ec2_instances_data.append(instance_data)
-                parse_instance_data(instance_data)
+    for region in region_option:
+        print(f"[+] Enumerating Instances in {Fore.GREEN}{region}{Style.RESET_ALL}")
+        ec2 = ec2_handler.EC2(botoconfig, session, region)
+        instances = ec2.describe_instances()
+        instance_data = []
+        if instances:
+            for reservation in instances['Reservations']:
+                if reservation.get('Instances'):
+                    instance_data.extend(reservation['Instances'])
 
-    return ec2_instances_data
+                    while instances.get('NextToken'):
+                        instances = ec2.describe_instances(instances['NextToken'])
+                        for reservation in instances['Reservations']:
+                            if reservation.get('Instances'):
+                                instance_data.extend(reservation['Instances'])
+            
+            if instance_data:
+                for instance in instance_data:
+                    print(f"=============================================\nInstanceId: {instance['InstanceId']}\nState: {instance['State']}\nAddress: {instance['PublicDnsName']}")
