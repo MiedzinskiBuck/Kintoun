@@ -11,11 +11,7 @@ def help():
 def main(botoconfig, session):
     iam = iam_handler.IAM(botoconfig, session)
     print("\n[+] Getting user name....")
-    current_user = {}
     username = iam.whoami()
+    print("[+] Current User: "+Fore.GREEN+"{}".format(username)+Style.RESET_ALL)
 
-    current_user['current_user'] = username
-
-    print("[+] Current User: "+Fore.GREEN+"{}".format(current_user['current_user'])+Style.RESET_ALL)
-
-    return current_user
+    return username

@@ -26,4 +26,3 @@ class EC2():
         )
 
         return attribute
-
