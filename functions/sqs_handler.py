@@ -23,4 +23,4 @@ class SQS():
             WaitTimeSeconds=20
         )
 
-        print(response)
+        return response

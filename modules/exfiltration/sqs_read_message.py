@@ -1,4 +1,3 @@
-import boto3
 import signal
 import time
 import readchar
