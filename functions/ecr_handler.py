@@ -25,3 +25,20 @@ class ECR():
             return False
         
         return response
+
+    def describe_images(self, accountId, repoName, token=None):
+        if token:
+            response = self.client.describe_images(
+                registryId=accountId,
+                repositoryName=repoName,
+                maxResults=1000,
+                nextToken=token
+            )
+        else:
+            response = self.client.describe_images(
+                registryId=accountId,
+                repositoryName=repoName,
+                maxResults=1000
+            )
+
+        return response

@@ -21,7 +21,7 @@ def main(botoconfig, session):
     account_id = sts.get_caller_identity()['Account']
 
     for region in region_option:
-        print(f"[+] Enumerating Images in {Fore.GREEN}{region}{Style.RESET_ALL}")
+        print(f"[+] Enumerating Repositories in {Fore.GREEN}{region}{Style.RESET_ALL}")
         ecr = ecr_handler.ECR(botoconfig, session, region)
         repositories = ecr.describe_repositories(account_id)
         repository_list = []
@@ -34,6 +34,6 @@ def main(botoconfig, session):
                     if repositories.get('repositories'):
                         repository_list.extend(repositories['repositories'])
                         
-            if repository_list:
-                print(repository_list)
-                
+        if repository_list:
+            for repository in repository_list:
+                print(f"[+] Image: {Fore.YELLOW}{repository['repositoryArn']}{Style.RESET_ALL}")
