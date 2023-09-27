@@ -1,5 +1,5 @@
 <p align="left">
-    <img src="https://user-images.githubusercontent.com/41388860/164986870-09e9890c-1633-4ecc-9dda-64be2b11761e.png"/>
+    ![kintoun-removebg-preview-removebg-preview](https://github.com/MiedzinskiBuck/Kintoun/assets/41388860/79376afe-2eb3-4264-a0ea-9b5e7da85842)
 </p>
 
 #
