@@ -26,3 +26,8 @@ class EC2():
         )
 
         return attribute
+    
+    def describe_snapshots(self):
+        snapshots = self.client.describe_snapshots()
+
+        return snapshots
