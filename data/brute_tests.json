@@ -1,0 +1,20 @@
+{
+    "ec2": [
+        "describe_instances",
+        "describe_snapshots",
+        "describe_account_attributes",
+        "describe_addresses",
+        "describe_availability_zones",
+        "describe_client_vpn_endpoints",
+        "describe_images",
+        "describe_instance_status",
+        "describe_internet_gateways",
+        "describe_key_pairs",
+        "describe_launch_templates",
+        "describe_network_acls",
+        "describe_security_groups",
+        "describe_subnets",
+        "describe_tags",
+        "describe_volumes"
+    ]
+}
