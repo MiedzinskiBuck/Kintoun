@@ -24,7 +24,7 @@ class SSM():
                     ]
                 }
             ])
-        except:
+        except botocore.exceptions.ClientError:
             return None
 
         return response

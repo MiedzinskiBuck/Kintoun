@@ -1,5 +1,4 @@
-import boto3
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 from functions import create_client
 
 def help():
@@ -42,9 +41,14 @@ def list_bucket_objects(client, bucket_names):
             bucket_objects[bucket] = []
             continue
 
-        while response['IsTruncated']:
-            reponse = client.list_objects_v2(Bucket=bucket, MaxKeys=1000, ContinuationToken=response['NextContinuationToken'])
-            bucket_objects[bucket].extend(response['Contents'])
+        while response.get('IsTruncated'):
+            response = client.list_objects_v2(
+                Bucket=bucket,
+                MaxKeys=1000,
+                ContinuationToken=response['NextContinuationToken']
+            )
+            if response.get('Contents'):
+                bucket_objects[bucket].extend(response['Contents'])
     
     return bucket_objects
 

@@ -29,8 +29,8 @@ def main(botoconfig, session):
             if repositories.get('repositories'):
                 repository_list.extend(repositories['repositories'])
 
-                while repositories.get('NextToken'):
-                    repositories = ecr.describe_repositories(account_id, repositories['NextToken'])
+                while repositories.get('nextToken'):
+                    repositories = ecr.describe_repositories(account_id, repositories['nextToken'])
                     if repositories.get('repositories'):
                         repository_list.extend(repositories['repositories'])
                         

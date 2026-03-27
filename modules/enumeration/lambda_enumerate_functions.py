@@ -1,4 +1,5 @@
 import boto3
+import botocore
 from colorama import Fore, Style
 from functions import create_client
 from functions import region_parser
@@ -49,7 +50,7 @@ def main(botoconfig, session):
                     for function in lambda_functions['Functions']:
                         print("[+] Function Arn: "+Fore.GREEN+"{}".format(function['FunctionArn'])+Style.RESET_ALL)
                         lambda_function_list.append(function)
-            except:
-                pass
+            except botocore.exceptions.ClientError as e:
+                print(Fore.RED + f"[-] Failed to enumerate Lambda in {region}: {e}" + Style.RESET_ALL)
     
     return lambda_function_list 

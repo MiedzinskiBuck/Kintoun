@@ -36,7 +36,7 @@ def get_stack_template(cloudformation_client, stack_id):
             )
 
         return response
-    except:
+    except botocore.exceptions.ClientError:
         return False
     
 def main(botoconfig, session):

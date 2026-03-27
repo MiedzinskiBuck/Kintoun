@@ -1,4 +1,5 @@
 import boto3
+import botocore
 from colorama import Fore, Style
 from functions import region_parser
 from functions import create_client
@@ -50,7 +51,7 @@ def main(botoconfig, session):
                     for instance in rds_instances['DBInstances']:
                         print("[+] Instance: "+Fore.GREEN+"{}".format(instance['DBInstanceIdentifier'])+Style.RESET_ALL)
                         rds_instance_list.append(instance)
-            except:
-                pass
+            except botocore.exceptions.ClientError as e:
+                print(Fore.RED + f"[-] Failed to enumerate RDS in {region}: {e}" + Style.RESET_ALL)
     
     return rds_instance_list 

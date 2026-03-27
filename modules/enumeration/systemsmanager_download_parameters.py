@@ -1,4 +1,5 @@
 import boto3
+import botocore
 from colorama import Fore, Style
 from functions import region_parser
 from functions import create_client
@@ -61,7 +62,7 @@ def main(botoconfig, session):
                         parameter_value = get_parameter_value(ssm_client, parameter['Name'])
                         print("{}".format(parameter_value['Parameter']['Value']))
                         found_parameters.append(parameter_value)
-            except:
-                pass
+            except botocore.exceptions.ClientError as e:
+                print(Fore.RED + f"[-] Failed to enumerate SSM parameters in {region}: {e}" + Style.RESET_ALL)
     
     return found_parameters
