@@ -30,19 +30,20 @@ def assume_role(session, role_name, acc_number, session_name, botoconfig):
     except Exception as e:
         return(e.response["Error"]["Code"])
 
-def brute_role(session, botoconfig):
+def collect_inputs():
     wordlist = input("Please specify the wordlist to be used: ")
+    acc_number = input("Please specify the account number to be used: ")
+    session_name = input("Please specify the session name to be used: ")
+    if not session_name:
+        session_name = "AssumedRole"
+    return wordlist, acc_number, session_name
+
+def brute_role(session, botoconfig, wordlist, acc_number, session_name):
 
     if not os.path.exists(wordlist):
         print(Fore.RED + "[-] Wordlist file not found..." + Style.RESET_ALL)
 
         return False
-        
-    acc_number = input("Please specify the account number to be used: ")
-    session_name = input("Please specify the session name to be used: ")
-
-    if not session_name:
-        session_name = "AssumedRole"
         
     role_names_file = open(wordlist, 'r')
     role_names = role_names_file.readlines()
@@ -68,4 +69,5 @@ def main(botoconfig, session):
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
     print("[+] Starting Bruteforce Roles Module...\n")
 
-    brute_role(session, botoconfig)
+    wordlist, acc_number, session_name = collect_inputs()
+    brute_role(session, botoconfig, wordlist, acc_number, session_name)

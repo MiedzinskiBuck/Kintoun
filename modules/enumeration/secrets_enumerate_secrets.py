@@ -1,7 +1,6 @@
-import boto3
 import botocore
 from colorama import Fore, Style
-from functions import create_client
+from functions import secrets_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -20,9 +19,7 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def create_secrets_manager_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'secretsmanager', region)
-
-    return client.create_aws_client()
+    return secrets_handler.Secrets(botoconfig, session, region)
 
 def list_target_secrets(botoconfig, session, region):
     print("[+] Searching for secrets on the "+ Fore.YELLOW+ "{}".format(region) + Style.RESET_ALL + " region...")
@@ -31,12 +28,16 @@ def list_target_secrets(botoconfig, session, region):
     try:
         client = create_secrets_manager_client(botoconfig, session, region)
         response = client.list_secrets()
+        if not response:
+            return secrets_list
         for secret in response['SecretList']:
             secrets_list['SecretList'].append(secret)
 
         try:
             while response['NextToken']:
-                response = client.list_secrets(NextToken=response['NextToken'])
+                response = client.list_secrets(response['NextToken'])
+                if not response:
+                    break
                 for secret in response['SecretList']:
                     secrets_list['SecretList'].append(secret)
         except KeyError:
@@ -47,16 +48,11 @@ def list_target_secrets(botoconfig, session, region):
         print(Fore.RED + "[-] Couldn't enumerate secrets for {}".format(region) + Style.RESET_ALL)
 
 def get_secrets_value(client, secret_data):
-    try:
-        arn = secret_data['ARN']
-
-        response = client.get_secret_value(
-            SecretId=arn
-        )
-
-        return response
-    except Exception as e:
-        print(f"[-] Failte to retrieve secret: {e}")
+    arn = secret_data['ARN']
+    response = client.get_secret_value(arn)
+    if not response:
+        print(f"[-] Failed to retrieve secret: {arn}")
+    return response
 
 def parse_secrets_value(botoconfig, secrets_data, session):
     secrets_data_list = []
@@ -68,6 +64,8 @@ def parse_secrets_value(botoconfig, secrets_data, session):
             client = create_secrets_manager_client(botoconfig, session, region)
             for secret in secrets_data[region]['SecretList']:
                 secret_value = get_secrets_value(client, secret)
+                if not secret_value:
+                    continue
                 secrets_data_list.append(secret_value)
                 try:
                     print(f"\tSecret String:{Fore.GREEN}{secret_value['SecretString']}{Style.RESET_ALL}")
@@ -81,25 +79,16 @@ def main(botoconfig, session):
     print("\n[+] Starting Secrets Enumeration...")
 
     secrets_data_list = {}
-    
-    regions_file = open("data/regions.txt", "r")
-    regions = regions_file.read().splitlines()
-    print("\n[+] Available Regions...\n")
-    for region in regions:
-        print("- {}".format(region))
-    selected_region = input("\n[+] Select region (Default All): ")
-    if not selected_region:
-        for region in regions:
-            secrets_data = list_target_secrets(botoconfig, session, region)
-            if secrets_data:
-                secrets_data_list[region] = secrets_data
-    elif selected_region not in regions:
-        print("[-] Invalid Region...")
-    else:
-        secrets_data = list_target_secrets(botoconfig, session, selected_region)
+
+    selected_regions = utils.region_parser()
+    if not selected_regions:
+        return utils.module_result(status="error", errors=["Invalid region selection"])
+
+    for region in selected_regions:
+        secrets_data = list_target_secrets(botoconfig, session, region)
         if secrets_data:
-            secrets_data_list[selected_region] = secrets_data
+            secrets_data_list[region] = secrets_data
 
     parsed_secrets = parse_secrets_value(botoconfig, secrets_data_list, session)
 
-    return parsed_secrets
+    return utils.module_result(data=parsed_secrets)

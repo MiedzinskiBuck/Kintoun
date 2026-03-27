@@ -1,6 +1,5 @@
-import boto3
 from colorama import Fore, Style
-from functions import create_client
+from functions import sts_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -9,8 +8,7 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def get_sts_client(botoconfig, session):
-    client = create_client.Client(botoconfig, session, 'sts')
-    return client.create_aws_client()
+    return sts_handler.STS(botoconfig, session)
 
 def get_account_info(client):
     response = client.get_caller_identity()
@@ -26,5 +24,5 @@ def main(botoconfig, session):
     print("Account Number: "+Fore.GREEN+"{}".format(account_info['Account'])+Style.RESET_ALL)
     print("User Arn: "+Fore.GREEN+"{}".format(account_info['Arn'])+Style.RESET_ALL)
 
-    return account_info
+    return utils.module_result(data=account_info)
     

@@ -1,3 +1,9 @@
+import tempfile
+import time
+from functions import region_parser as _region_parser
+from colorama import Fore, Style
+
+
 def parse_account_information(username, user_details, group_details, role_details, policy_details):
     current_user = None
     
@@ -45,25 +51,40 @@ def parse_account_information(username, user_details, group_details, role_detail
 
     return policy_documents
 
+
 def region_parser():
-    regions_file = open("data/regions.txt", "r")
-    regions = regions_file.read().splitlines()
-    print("[+] Available Regions...\n")
+    return _region_parser.select_regions()
 
-    for region in regions:
-        print("- {}".format(region))
-    selected_region = input("\n[+] Select region (Default All): ")
 
-    if not selected_region:
-        selected_regions = []
-        for region in regions:
-            selected_regions.append(region)
-        return selected_regions
+def module_result(data=None, status="ok", errors=None):
+    if errors is None:
+        errors = []
+    return {
+        "status": status,
+        "data": data,
+        "errors": errors
+    }
 
-    elif selected_region not in regions:
-        print("[-] Invalid Region...")
-        return False
 
-    else:
-        selected_region = [selected_region]
-        return selected_region
+def create_temp_zip_path():
+    temp_file = tempfile.NamedTemporaryFile(prefix="kintoun_lambda_", suffix=".zip", delete=False)
+    temp_file.close()
+    return temp_file.name
+
+
+def poll_until(check_fn, interval_seconds=10, max_attempts=36):
+    for _ in range(max_attempts):
+        if check_fn():
+            return True
+        time.sleep(interval_seconds)
+    return False
+
+
+def print_section(message):
+    print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+    print(message)
+    print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+
+
+def error_result(message):
+    return module_result(status="error", errors=[message])

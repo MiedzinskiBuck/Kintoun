@@ -1,10 +1,8 @@
-import boto3
 import botocore.exceptions
 import json
 
 from colorama import Fore, Style
-from functions import create_client
-from functions import region_parser
+from functions import Cloudformation_handler, region_parser, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -20,24 +18,22 @@ def help():
     print("\tResults for this module could be lenghty, so it won't print them to the screen...")
     print("\tYou can see them on the 'results' directory that will be showned on screen...")
 
-def create_cloudformation_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, "cloudformation", region)
-    return client.create_aws_client()
-
 def get_optional_regions():
     optional_region = region_parser.Region()
 
     return optional_region 
 
-def get_stack_template(cloudformation_client, stack_id):
+def get_stack_template(cloudformation, stack_id):
     try:
-        response = cloudformation_client.get_template(
-            StackName=stack_id
-            )
-
+        response = cloudformation.get_template(stack_id)
         return response
     except botocore.exceptions.ClientError:
         return False
+
+
+def collect_inputs():
+    stack_id = input("Stack Arn: ")
+    return stack_id
     
 def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -45,12 +41,12 @@ def main(botoconfig, session):
 
     print("[+] Retrieving Stacks Template...")
 
-    stack_id = input("Stack Arn: ")
+    stack_id = collect_inputs()
     region = stack_id.split(":")[3]
 
-    cloudformation_client = create_cloudformation_client(botoconfig, session, region)
+    cloudformation = Cloudformation_handler.Cloudformation(botoconfig, session, region)
 
-    stack_template = get_stack_template(cloudformation_client, stack_id)
+    stack_template = get_stack_template(cloudformation, stack_id)
     print(json.dumps(stack_template, indent=4))
 
-    return stack_template
+    return utils.module_result(data=stack_template)

@@ -1,5 +1,5 @@
 from colorama import Fore, Style
-from functions import create_client
+from functions import s3_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -13,9 +13,7 @@ def help():
     print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
 def create_s3_client(botoconfig, session):
-    client = create_client.Client(botoconfig, session, 's3')
-
-    return client.create_aws_client()
+    return s3_handler.S3(botoconfig, session)
 
 def list_buckets(client):
     response = client.list_buckets()
@@ -34,7 +32,10 @@ def list_bucket_objects(client, bucket_names):
     bucket_objects = {}
 
     for bucket in bucket_names:
-        response = client.list_objects_v2(Bucket=bucket, MaxKeys=1000)
+        response = client.list_objects(bucket)
+        if not response:
+            bucket_objects[bucket] = []
+            continue
         if response.get('Contents'):
             bucket_objects[bucket] = response['Contents']
         else:
@@ -42,11 +43,9 @@ def list_bucket_objects(client, bucket_names):
             continue
 
         while response.get('IsTruncated'):
-            response = client.list_objects_v2(
-                Bucket=bucket,
-                MaxKeys=1000,
-                ContinuationToken=response['NextContinuationToken']
-            )
+            response = client.list_objects(bucket, response['NextContinuationToken'])
+            if not response:
+                break
             if response.get('Contents'):
                 bucket_objects[bucket].extend(response['Contents'])
     
@@ -57,6 +56,8 @@ def main(botoconfig, session):
 
     print("\n[+] Starting Bucket Enumeration...\n")
     bucket_data = list_buckets(client)
+    if not bucket_data:
+        return utils.module_result(status="error", errors=["Failed to list buckets"])
     bucket_names = parse_bucket_data(bucket_data)
 
     for bucket in bucket_names:
@@ -74,4 +75,4 @@ def main(botoconfig, session):
             for object in bucket_objects.get(bucket):
                 print("- {}".format(object.get('Key')))
 
-    return bucket_data
+    return utils.module_result(data=bucket_data)

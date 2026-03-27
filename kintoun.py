@@ -2,6 +2,7 @@ import argparse
 import importlib
 import os
 from functions import banner, change_agent, credential_handler
+from functions import utils
 from colorama import Fore, Style
 
 class Program:
@@ -30,34 +31,36 @@ class Program:
         return credentials.session
 
     def run(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Running "+Fore.GREEN+f"/{self.args.category}/{self.args.module}"+Style.RESET_ALL+" module...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        utils.print_section("Running "+Fore.GREEN+f"/{self.args.category}/{self.args.module}"+Style.RESET_ALL+" module...")
 
         session = self.parseCredentials()
         try:
             module_path = f"modules/{self.args.category}/{self.args.module}"
             module_path = module_path.replace('/', '.').replace('\\', '.')
             module = importlib.import_module(module_path)
-            self.module_info = module.main(self.botoconfig, session)
+            module_output = module.main(self.botoconfig, session)
+            self.module_info = self.normalize_module_output(module_output)
 
         except ModuleNotFoundError:
             raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
 
     def console(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Creating console link...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        utils.print_section("Creating console link...")
 
         session = self.parseCredentials()
         console_module_path = "modules.misc.console"
         console_module = importlib.import_module(console_module_path)
-        self.module_info = console_module.main(self.botoconfig, session)
+        module_output = console_module.main(self.botoconfig, session)
+        self.module_info = self.normalize_module_output(module_output)
+
+    def normalize_module_output(self, module_output):
+        if isinstance(module_output, dict):
+            if {"status", "data", "errors"}.issubset(module_output.keys()):
+                return module_output
+        return utils.module_result(data=module_output)
     
     def list_modules(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Listing available modules...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
+        utils.print_section("Listing available modules...")
 
         catalog = {}
         categories = os.listdir("./modules/")

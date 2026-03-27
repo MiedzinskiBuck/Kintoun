@@ -1,8 +1,6 @@
-import boto3
 import botocore.exceptions
 from colorama import Fore, Style
-from functions import create_client
-from functions import region_parser
+from functions import Cloudformation_handler, region_parser, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -12,10 +10,6 @@ def help():
 
     print("[+] Module Functionality:\n")
     print("\tJust run the module and inform the region to list the stacks.")
-
-def create_cloudformation_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, "cloudformation", region)
-    return client.create_aws_client()
 
 def get_optional_regions():
     optional_region = region_parser.Region()
@@ -27,12 +21,16 @@ def list_stacks(botoconfig, session, region):
 
     try:
         print("[+] Enumerating Stacks in {}".format(region))
-        client = create_cloudformation_client(botoconfig, session, region)
-        stack_data = client.list_stacks()
+        cloudformation = Cloudformation_handler.Cloudformation(botoconfig, session, region)
+        stack_data = cloudformation.list_stacks()
+        if not stack_data:
+            return stack_list
         stack_list.append(stack_data)
 
         while stack_data.get('NextToken'):
-            stack_data = client.list_stacks(NextToken=stack_data['NextToken'])
+            stack_data = cloudformation.list_stacks(stack_data['NextToken'])
+            if not stack_data:
+                break
             stack_list.append(stack_data)
                             
         return stack_list
@@ -42,6 +40,8 @@ def list_stacks(botoconfig, session, region):
     pass
 
 def parse_stack_information(stack_list):
+    if not stack_list:
+        return
     for stack in stack_list[0]:
         for summary in stack['StackSummaries']:
             print("\t[+] Stack ID = {}".format(summary['StackId']))
@@ -68,4 +68,4 @@ def main(botoconfig, session):
     
     parse_stack_information(cloudformation_stack_data)
 
-    return cloudformation_stack_data
+    return utils.module_result(data=cloudformation_stack_data)

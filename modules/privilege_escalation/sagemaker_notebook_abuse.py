@@ -1,6 +1,6 @@
 import botocore
 from colorama import Fore, Style
-from functions import create_client
+from functions import create_client, utils
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -72,31 +72,40 @@ def create_presigned_url(sagemaker_client, selected_notebook):
 
         return False
 
+
+def collect_inputs(required_permissions, existing_notebooks):
+    if not required_permissions:
+        option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
+        if not option or option.lower() == "n":
+            return None
+    return select_notebook(existing_notebooks)
+
 def main(botoconfig, session, selected_session=None):
+    results = {}
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
     print("[+] Starting SageMaker privilege escalation module...")
     print("[+] Checking for required permissions...")
 
     required_permissions = check_permissions(selected_session)
 
-    if not required_permissions:
-        option = input("\n[-] KintoUn was "+Fore.RED+"not able"+Style.RESET_ALL+" to identity the required permissions...\n[-] This can be due to generic permissions like '*'...\n\nDo you want to continue executing the module? [y/N]: ")
-        if not option or option.lower() == "n":
-            print("[-] Exiting module...")
-            return
-
     print("[+] Checking for existing notebooks...")
     sagemaker_client = create_client.Client(botoconfig, session, 'sagemaker').create_aws_client()
     existing_notebooks = check_existing_notebooks(botoconfig, session, sagemaker_client)
     if not existing_notebooks:
         print("[-] There is "+Fore.RED+"no existing notebooks..."+Style.RESET_ALL+"This module requires an existing notebook to run..."+Style.RESET_ALL)
-        return False
+        return utils.module_result(status="error", errors=["No notebook instances found"])
 
     print("[+] Parsing existing notebooks results...")
-    selected_notebook = select_notebook(existing_notebooks)
+    selected_notebook = collect_inputs(required_permissions, existing_notebooks)
+    if not selected_notebook:
+        print("[-] Exiting module...")
+        return utils.module_result(status="error", errors=["Notebook selection was cancelled"])
     
     print("[+] Creating pre-signed URL...")
     signed_url = create_presigned_url(sagemaker_client, selected_notebook)
     if not signed_url:
-        return False
+        return utils.module_result(status="error", errors=["Failed to create pre-signed URL"])
+    results["NotebookName"] = selected_notebook
+    results["AuthorizedUrl"] = signed_url.get("AuthorizedUrl")
     print("[+] Signed Url: "+Fore.GREEN+"{}".format(signed_url['AuthorizedUrl'])+Style.RESET_ALL)
+    return utils.module_result(data=results)

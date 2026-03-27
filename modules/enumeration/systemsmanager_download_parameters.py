@@ -1,12 +1,10 @@
-import boto3
 import botocore
 from colorama import Fore, Style
 from functions import region_parser
-from functions import create_client
+from functions import ssm_handler, utils
 
 def create_ssm_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'ssm', region)
-    return client.create_aws_client()
+    return ssm_handler.SSM(botoconfig, session, region)
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
@@ -29,15 +27,12 @@ def get_optional_regions():
 
 def list_ssm_parameters(botoconfig, session, region):
     ssm_client = create_ssm_client(botoconfig, session, region)
-    response = ssm_client.describe_parameters() 
+    response = ssm_client.describe_parameters()
 
     return response, ssm_client
 
 def get_parameter_value(ssm_client, parameter_name):
-    response = ssm_client.get_parameter(
-        Name=parameter_name,
-        WithDecryption=True
-    )
+    response = ssm_client.get_parameter(parameter_name)
     
     return response
 
@@ -65,4 +60,4 @@ def main(botoconfig, session):
             except botocore.exceptions.ClientError as e:
                 print(Fore.RED + f"[-] Failed to enumerate SSM parameters in {region}: {e}" + Style.RESET_ALL)
     
-    return found_parameters
+    return utils.module_result(data=found_parameters)
