@@ -34,12 +34,12 @@ class IAM():
         if response.get('Policies'):
             policy_details.extend(response['Policies'])
 
-        while response['IsTruncated']:
+        while response.get('IsTruncated') and response.get('Marker'):
             response = self.client.get_account_authorization_details(Marker=response['Marker'])
 
             if response.get('UserDetailList'):
                 user_details.extend(response['UserDetailList'])
-            if response.get('GroupDetalList'): 
+            if response.get('GroupDetailList'):
                 group_details.extend(response['GroupDetailList'])
             if response.get('RoleDetailList'):
                 role_details.extend(response['RoleDetailList'])
@@ -52,3 +52,11 @@ class IAM():
         users = self.client.list_users()
 
         return users
+
+    def enumerate_roles(self, marker=None):
+        if marker:
+            roles = self.client.list_roles(Marker=marker)
+        else:
+            roles = self.client.list_roles()
+
+        return roles

@@ -439,7 +439,19 @@ def create_app():
         input_values = [line for line in input_values_text.splitlines() if line.strip()]
         module_key = f"{category}/{name}"
         selected_module = next((m for m in get_modules_catalog() if m["path"] == module_key), None)
-        if selected_region and selected_module and selected_module.get("metadata", {}).get("requires_region"):
+        if not selected_module:
+            flash("Selected module is invalid or no longer available.", "error")
+            return redirect(url_for("dashboard"))
+        module_metadata = selected_module.get("metadata", {}) or {}
+        module_inputs_meta = module_metadata.get("inputs", []) or []
+        accepts_region_input = any(
+            isinstance(inp, dict) and inp.get("name") == "region"
+            for inp in module_inputs_meta
+        )
+        if module_metadata.get("requires_region") and not selected_region:
+            flash("This module requires an AWS region. Please select one before queueing the run.", "error")
+            return redirect(url_for("dashboard"))
+        if selected_region and (module_metadata.get("requires_region") or accepts_region_input):
             input_values = [selected_region] + input_values
 
         db = get_db()
@@ -495,6 +507,25 @@ def create_app():
         db.execute("DELETE FROM runs WHERE id = ?", (run_id,))
         db.commit()
         flash(f"Run #{run_id} deleted.", "success")
+        return redirect(url_for("dashboard"))
+
+    @app.route("/runs/clear", methods=["POST"])
+    @login_required
+    def runs_clear():
+        db = get_db()
+        in_progress = db.execute(
+            "SELECT COUNT(1) AS c FROM runs WHERE status IN ('queued', 'running')"
+        ).fetchone()
+        if in_progress and in_progress["c"] > 0:
+            flash("Cannot clear runs while executions are queued or running.", "error")
+            return redirect(url_for("dashboard"))
+
+        deleted = db.execute("SELECT COUNT(1) AS c FROM runs").fetchone()
+        db.execute("DELETE FROM runs")
+        db.commit()
+        db.execute("VACUUM")
+        db.commit()
+        flash(f"Cleared {deleted['c']} run(s) and compacted the database.", "success")
         return redirect(url_for("dashboard"))
 
     with app.app_context():

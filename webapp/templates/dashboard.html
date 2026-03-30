@@ -3,7 +3,7 @@
 <section class="grid dashboard-grid">
   <article class="card launch-card">
     <h2>Launch Module</h2>
-    <form method="post" action="{{ url_for('runs_new') }}" class="form-grid">
+    <form id="run_form" method="post" action="{{ url_for('runs_new') }}" class="form-grid">
       <label>Category
         <select id="category_filter" name="category_filter">
           <option value="">All categories</option>
@@ -48,14 +48,14 @@
       </label>
 
       <label>AWS Region (optional, prepended to module inputs)
-        <select name="selected_region">
+        <select id="selected_region" name="selected_region">
           <option value="">No preselected region</option>
           {% for r in regions %}
           <option value="{{ r }}">{{ r }}</option>
           {% endfor %}
         </select>
       </label>
-      <p class="hint">Applied automatically only for modules that start by asking for region selection.</p>
+      <p class="hint">Applied automatically for modules that require region or define an optional <code>region</code> input.</p>
 
       <label>Module Inputs (one value per line)
         <textarea name="input_values" rows="6" placeholder="Only required for interactive modules."></textarea>
@@ -67,7 +67,12 @@
   <article class="card runs-card">
     <div class="row">
       <h2>Recent Runs</h2>
-      <a class="button" href="{{ url_for('dashboard') }}">Refresh</a>
+      <div class="row-actions">
+        <a class="button" href="{{ url_for('dashboard') }}">Refresh</a>
+        <form method="post" action="{{ url_for('runs_clear') }}" onsubmit="return confirm('Delete all past runs and compact the database? This cannot be undone.');">
+          <button type="submit" class="danger tiny">Clear Runs</button>
+        </form>
+      </div>
     </div>
     <p class="hint">Tip: double-click any run row to open full details.</p>
     <div class="table-wrap">
@@ -122,6 +127,8 @@
     const moduleRegion = document.getElementById("module_info_region");
     const moduleRisk = document.getElementById("module_info_risk");
     const moduleInputs = document.getElementById("module_info_inputs");
+    const runForm = document.getElementById("run_form");
+    const regionSelect = document.getElementById("selected_region");
     const moduleCatalog = {{ modules | tojson }};
     if (!categoryFilter || !moduleSelect) return;
 
@@ -190,6 +197,18 @@
 
     categoryFilter.addEventListener("change", filterModules);
     moduleSelect.addEventListener("change", () => renderModuleInfo(moduleSelect.value));
+
+    if (runForm) {
+      runForm.addEventListener("submit", (event) => {
+        const selected = moduleByPath(moduleSelect.value);
+        const requiresRegion = !!(selected && selected.metadata && selected.metadata.requires_region);
+        const hasRegion = !!(regionSelect && regionSelect.value && regionSelect.value.trim());
+        if (requiresRegion && !hasRegion) {
+          event.preventDefault();
+          alert("This module requires an AWS region. Please select one before queueing the run.");
+        }
+      });
+    }
   })();
 </script>
 {% endblock %}

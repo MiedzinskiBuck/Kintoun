@@ -1,10 +1,17 @@
 MODULE_METADATA = {
     "name": "ec2_enumerate_instances",
-    "display_name": "EC2 Enumerate Instances",
+    "display_name": "EC2 Enumerate All Instances",
     "category": "enumeration",
-    "description": "Enumerate EC2 instances across all configured regions.",
+    "description": "Enumerate EC2 instances in a selected region or across all regions.",
     "requires_region": False,
-    "inputs": [],
+    "inputs": [
+        {
+            "name": "region",
+            "type": "region",
+            "required": False,
+            "description": "Optional AWS region. Leave empty to enumerate all regions.",
+        }
+    ],
     "output_type": "json",
     "risk_level": "low",
 }
@@ -15,6 +22,15 @@ from functions import ec2_handler, region_parser, utils
 
 def help():
     return
+
+
+def collect_inputs():
+    try:
+        selected_region = input("Region (optional): ").strip()
+    except RuntimeError:
+        # No interactive input provided by runner: default to all regions.
+        selected_region = ""
+    return {"region": selected_region}
 
 
 def parse_instances(resp):
@@ -35,7 +51,9 @@ def parse_instances(resp):
 
 
 def main(botoconfig, session):
-    regions = region_parser.get_regions()
+    inputs = collect_inputs()
+    selected_region = inputs.get("region", "").strip()
+    regions = [selected_region] if selected_region else region_parser.get_regions()
     results = {"regions": {}, "errors": []}
     total = 0
 
