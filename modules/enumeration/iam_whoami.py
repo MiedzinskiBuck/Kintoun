@@ -1,17 +1,32 @@
-from functions import iam_handler 
-from functions.no_color import Fore, Style
+MODULE_METADATA = {
+    "name": "iam_whoami",
+    "display_name": "IAM WhoAmI",
+    "category": "enumeration",
+    "description": "Return the current IAM username and basic identity context.",
+    "requires_region": False,
+    "inputs": [],
+    "output_type": "json",
+    "risk_level": "low",
+}
+
+from functions import iam_handler, sts_handler, utils
+
 
 def help():
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Module Description:\n")
-    print("\tThis module will enumerate the current user profile.")
-    print("\tIt will print the 'CurrentUser' information.\n")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    return
+
 
 def main(botoconfig, session):
     iam = iam_handler.IAM(botoconfig, session)
-    print("\n[+] Getting user name....")
-    username = iam.whoami()
-    print("[+] Current User: "+Fore.GREEN+"{}".format(username)+Style.RESET_ALL)
+    sts = sts_handler.STS(botoconfig, session)
 
-    return username
+    username = iam.whoami()
+    identity = sts.get_caller_identity()
+
+    data = {
+        "username": username,
+        "account_id": identity.get("Account"),
+        "arn": identity.get("Arn"),
+        "user_id": identity.get("UserId"),
+    }
+    return utils.module_result(data=data)

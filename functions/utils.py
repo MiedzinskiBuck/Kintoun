@@ -1,5 +1,7 @@
 import tempfile
 import time
+import builtins
+import contextlib
 from functions import region_parser as _region_parser
 from functions.no_color import Fore, Style
 
@@ -66,6 +68,12 @@ def module_result(data=None, status="ok", errors=None):
     }
 
 
+def normalize_module_output(module_output):
+    if isinstance(module_output, dict) and {"status", "data", "errors"}.issubset(module_output.keys()):
+        return module_output
+    return module_result(data=module_output)
+
+
 def create_temp_zip_path():
     temp_file = tempfile.NamedTemporaryFile(prefix="kintoun_lambda_", suffix=".zip", delete=False)
     temp_file.close()
@@ -88,3 +96,13 @@ def print_section(message):
 
 def error_result(message):
     return module_result(status="error", errors=[message])
+
+
+@contextlib.contextmanager
+def suppress_print():
+    original_print = builtins.print
+    builtins.print = lambda *args, **kwargs: None
+    try:
+        yield
+    finally:
+        builtins.print = original_print

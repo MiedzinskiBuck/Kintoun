@@ -20,20 +20,26 @@ from functions import utils
 
 
 def help():
+    # Keep CLI help minimal. Web UI reads MODULE_METADATA.
     return
 
 
 def collect_inputs():
+    """Collect interactive inputs only if needed by this module."""
     # input_value = input("Example input: ")
     # return {"example_input": input_value}
     return {}
 
 
 def main(botoconfig, session):
+    """Main module entrypoint. Always return JSON-compatible output."""
     _ = (botoconfig, session)
     inputs = collect_inputs()
+
+    # TODO: Implement module logic.
     result_data = {
         "message": "Template module executed.",
         "inputs": inputs,
     }
+
     return utils.module_result(data=result_data)

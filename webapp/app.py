@@ -1,10 +1,9 @@
 import builtins
 import base64
-import contextlib
+import ast
 import datetime as dt
 import hashlib
 import importlib
-import io
 import json
 import os
 import sqlite3
@@ -19,6 +18,8 @@ from flask import Flask, flash, g, redirect, render_template, request, session, 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from functions import credential_handler
+from functions import utils
+from functions import region_parser
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -133,6 +134,32 @@ def create_app():
         return wrapper
 
     def get_modules_catalog():
+        def read_module_metadata(module_file: Path, category: str, name: str):
+            default_metadata = {
+                "name": name,
+                "display_name": name.replace("_", " ").title(),
+                "category": category,
+                "description": f"Run module {name}.",
+                "requires_region": False,
+                "inputs": [],
+                "output_type": "json",
+                "risk_level": "low",
+            }
+            try:
+                source = module_file.read_text(encoding="utf-8")
+                tree = ast.parse(source)
+                for node in tree.body:
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id == "MODULE_METADATA":
+                                value = ast.literal_eval(node.value)
+                                if isinstance(value, dict):
+                                    default_metadata.update(value)
+                                    return default_metadata
+            except Exception:
+                return default_metadata
+            return default_metadata
+
         catalog = []
         for category in sorted(MODULES_DIR.iterdir()):
             if not category.is_dir() or category.name.startswith("__"):
@@ -140,11 +167,13 @@ def create_app():
             for module_file in sorted(category.glob("*.py")):
                 if module_file.stem.startswith("__"):
                     continue
+                metadata = read_module_metadata(module_file, category.name, module_file.stem)
                 catalog.append(
                     {
                         "category": category.name,
                         "name": module_file.stem,
                         "path": f"{category.name}/{module_file.stem}",
+                        "metadata": metadata,
                     }
                 )
         return catalog
@@ -169,8 +198,6 @@ def create_app():
                 (run_id,),
             ).fetchone()
 
-            stdout_buf = io.StringIO()
-            stderr_buf = io.StringIO()
             result_json = None
             error_text = None
             status = "completed"
@@ -178,6 +205,7 @@ def create_app():
             input_values = json.loads(run["input_values_json"] or "[]")
             input_iter = iter(input_values)
             original_input = builtins.input
+            original_print = builtins.print
 
             def fake_input(prompt=""):
                 try:
@@ -201,15 +229,29 @@ def create_app():
                 module = importlib.import_module(module_path)
 
                 builtins.input = fake_input
-                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
-                    result = module.main(botoconfig, session_obj)
-
-                result_json = json.dumps(result, default=str, indent=2)
+                builtins.print = lambda *args, **kwargs: None
+                result = module.main(botoconfig, session_obj)
+                normalized_result = utils.normalize_module_output(result)
+                if normalized_result.get("status") == "error" and normalized_result.get("errors"):
+                    status = "failed"
+                    error_text = "\n".join(normalized_result.get("errors", []))
+                result_json = json.dumps(normalized_result, default=str, indent=2)
             except Exception:
                 status = "failed"
-                error_text = traceback.format_exc()
+                tb = traceback.format_exc()
+                error_text = tb
+                result_json = json.dumps(
+                    utils.module_result(
+                        status="error",
+                        errors=["Module execution failed"],
+                        data={"traceback": tb},
+                    ),
+                    default=str,
+                    indent=2,
+                )
             finally:
                 builtins.input = original_input
+                builtins.print = original_print
 
             db.execute(
                 """
@@ -217,7 +259,7 @@ def create_app():
                 SET status = ?, stdout = ?, stderr = ?, result_json = ?, error_text = ?, finished_at = ?
                 WHERE id = ?
                 """,
-                (status, stdout_buf.getvalue(), stderr_buf.getvalue(), result_json, error_text, _now(), run_id),
+                (status, None, None, result_json, error_text, _now(), run_id),
             )
             db.commit()
             db.close()
@@ -250,6 +292,7 @@ def create_app():
     def dashboard():
         db = get_db()
         credentials = db.execute("SELECT id, name, created_at FROM credentials ORDER BY name").fetchall()
+        regions = region_parser.get_regions()
         runs = db.execute(
             """
             SELECT
@@ -270,7 +313,15 @@ def create_app():
             """
         ).fetchall()
         modules = get_modules_catalog()
-        return render_template("dashboard.html", modules=modules, credentials=credentials, runs=runs)
+        categories = sorted({m["category"] for m in modules})
+        return render_template(
+            "dashboard.html",
+            modules=modules,
+            categories=categories,
+            credentials=credentials,
+            runs=runs,
+            regions=regions,
+        )
 
     @app.route("/credentials")
     @login_required
@@ -375,6 +426,7 @@ def create_app():
         module_path = request.form.get("module_path", "").strip()
         credential_id = request.form.get("credential_id", "").strip()
         input_values_text = request.form.get("input_values", "").strip()
+        selected_region = request.form.get("selected_region", "").strip()
 
         if "/" not in module_path:
             flash("Invalid module selection.", "error")
@@ -385,6 +437,10 @@ def create_app():
 
         category, name = module_path.split("/", 1)
         input_values = [line for line in input_values_text.splitlines() if line.strip()]
+        module_key = f"{category}/{name}"
+        selected_module = next((m for m in get_modules_catalog() if m["path"] == module_key), None)
+        if selected_region and selected_module and selected_module.get("metadata", {}).get("requires_region"):
+            input_values = [selected_region] + input_values
 
         db = get_db()
         run_cursor = db.execute(
@@ -411,7 +467,7 @@ def create_app():
         thread.start()
 
         flash(f"Run #{run_id} queued.", "success")
-        return redirect(url_for("run_detail", run_id=run_id))
+        return redirect(url_for("dashboard"))
 
     @app.route("/runs/<int:run_id>")
     @login_required
@@ -431,6 +487,15 @@ def create_app():
             flash("Run not found.", "error")
             return redirect(url_for("dashboard"))
         return render_template("run_detail.html", run=run)
+
+    @app.route("/runs/<int:run_id>/delete", methods=["POST"])
+    @login_required
+    def run_delete(run_id):
+        db = get_db()
+        db.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+        db.commit()
+        flash(f"Run #{run_id} deleted.", "success")
+        return redirect(url_for("dashboard"))
 
     with app.app_context():
         init_db()

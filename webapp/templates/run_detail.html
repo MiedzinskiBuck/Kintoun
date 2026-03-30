@@ -3,7 +3,12 @@
 <section class="card">
   <div class="row">
     <h1>Run #{{ run.id }}</h1>
-    <a class="button" href="{{ url_for('dashboard') }}">Back</a>
+    <div class="row-actions">
+      <form method="post" action="{{ url_for('run_delete', run_id=run.id) }}" onsubmit="return confirm('Delete run #{{ run.id }}?');">
+        <button type="submit" class="danger">Delete Run</button>
+      </form>
+      <a class="button" href="{{ url_for('dashboard') }}">Back</a>
+    </div>
   </div>
   <p><strong>Operator:</strong> {{ run.username }}</p>
   <p><strong>Module:</strong> {{ run.module_category }}/{{ run.module_name }}</p>
@@ -16,12 +21,6 @@
   <h2>Failure Summary</h2>
   <pre>{% if run.error_text %}{{ run.error_text.split('\n')[-2] if run.error_text.split('\n')|length > 1 else run.error_text }}{% elif run.stderr %}{{ run.stderr.split('\n')[0] }}{% else %}Unknown execution error{% endif %}</pre>
   {% endif %}
-
-  <h2>Standard Output</h2>
-  <pre>{{ run.stdout or '' }}</pre>
-
-  <h2>Standard Error</h2>
-  <pre>{{ run.stderr or '' }}</pre>
 
   <h2>Result JSON</h2>
   <pre>{{ run.result_json or '' }}</pre>

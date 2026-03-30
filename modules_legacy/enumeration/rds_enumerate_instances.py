@@ -1,0 +1,62 @@
+MODULE_METADATA = {
+    'name': 'rds_enumerate_instances',
+    'display_name': 'Rds Enumerate Instances',
+    'category': 'enumeration',
+    'description': 'Enumerate RDS instances in selected regions.',
+    'requires_region': True,
+    'inputs': [],
+    'output_type': 'json',
+    'risk_level': 'low'
+}
+import botocore
+from functions.no_color import Fore, Style
+from functions import region_parser
+from functions import rds_handler, utils
+
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate available RDS Instances")
+    print("\tpresent on the account.")
+
+    print("\n[+] Module Functionality:\n")
+    print("\tThe module will call 'describe_db_instances' and ")
+    print("\tprint the db names as they are returned.")
+
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
+def get_optional_regions():
+    optional_region = region_parser.Region()
+
+    return optional_region
+
+def get_rds_instance_list(botosession, session, region):
+    rds_client = rds_handler.RDS(botosession, session, region)
+    return rds_client.describe_db_instances()
+
+def main(botoconfig, session):
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Starting RDS Enumeration module...")
+    print("[+] Select region to retrieve instances...")
+    
+    rds_instance_list = []
+
+    region_option = get_optional_regions()
+
+    if region_option:
+        for region in region_option:
+            print("[+] Enumerating RDS instances for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
+            try:
+                rds_instances = get_rds_instance_list(botoconfig, session, region)
+                if rds_instances and rds_instances.get('DBInstances'):
+                    for instance in rds_instances['DBInstances']:
+                        print("[+] Instance: "+Fore.GREEN+"{}".format(instance['DBInstanceIdentifier'])+Style.RESET_ALL)
+                        rds_instance_list.append(instance)
+            except botocore.exceptions.ClientError as e:
+                print(Fore.RED + f"[-] Failed to enumerate RDS in {region}: {e}" + Style.RESET_ALL)
+    
+    return utils.module_result(data=rds_instance_list)
+
+
+
+

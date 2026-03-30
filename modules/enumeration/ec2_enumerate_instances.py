@@ -1,43 +1,64 @@
-from functions.no_color import Fore, Style
-from functions import ec2_handler, utils
+MODULE_METADATA = {
+    "name": "ec2_enumerate_instances",
+    "display_name": "EC2 Enumerate Instances",
+    "category": "enumeration",
+    "description": "Enumerate EC2 instances across all configured regions.",
+    "requires_region": False,
+    "inputs": [],
+    "output_type": "json",
+    "risk_level": "low",
+}
+
+import botocore
+from functions import ec2_handler, region_parser, utils
+
 
 def help():
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Module Description:\n")
-    print("\tThis module will enumerate ec2 instances on the account.")
-    print("\tThe default options will enumerate ec2 instances in all regions.\n")
+    return
 
-    print("\tThe module will print available ec2 instances, status and, if available, its public ip.")
-    print("\tOn the stored results, it will store all available information about the ec2 instances,")
-    print("\tgiving you a complete description of all information found.")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
 
-def get_optional_regions():
-    optional_region = utils.region_parser()
+def parse_instances(resp):
+    items = []
+    for reservation in resp.get("Reservations", []):
+        for instance in reservation.get("Instances", []):
+            items.append(
+                {
+                    "instance_id": instance.get("InstanceId"),
+                    "instance_type": instance.get("InstanceType"),
+                    "state": instance.get("State", {}).get("Name"),
+                    "private_ip": instance.get("PrivateIpAddress"),
+                    "public_ip": instance.get("PublicIpAddress"),
+                    "launch_time": str(instance.get("LaunchTime")),
+                }
+            )
+    return items
 
-    return optional_region 
 
 def main(botoconfig, session):
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Starting EC2 enumeration...")
-    region_option = get_optional_regions()
+    regions = region_parser.get_regions()
+    results = {"regions": {}, "errors": []}
+    total = 0
 
-    for region in region_option:
-        print(f"[+] Enumerating Instances in {Fore.GREEN}{region}{Style.RESET_ALL}")
-        ec2 = ec2_handler.EC2(botoconfig, session, region)
-        instances = ec2.describe_instances()
-        instance_data = []
-        if instances:
-            for reservation in instances['Reservations']:
-                if reservation.get('Instances'):
-                    instance_data.extend(reservation['Instances'])
+    for region in regions:
+        try:
+            ec2 = ec2_handler.EC2(botoconfig, session, region)
+            response = ec2.describe_instances()
+            if not response:
+                results["regions"][region] = []
+                continue
 
-                    while instances.get('NextToken'):
-                        instances = ec2.describe_instances(instances['NextToken'])
-                        for reservation in instances['Reservations']:
-                            if reservation.get('Instances'):
-                                instance_data.extend(reservation['Instances'])
-            
-            if instance_data:
-                for instance in instance_data:
-                    print(f"=============================================\nInstanceId: {instance['InstanceId']}\nState: {instance['State']}\nAddress: {instance['PublicDnsName']}")
+            region_instances = parse_instances(response)
+            while response.get("NextToken"):
+                response = ec2.describe_instances(response["NextToken"])
+                if not response:
+                    break
+                region_instances.extend(parse_instances(response))
+
+            results["regions"][region] = region_instances
+            total += len(region_instances)
+        except botocore.exceptions.ClientError as exc:
+            results["regions"][region] = []
+            results["errors"].append({"region": region, "error": str(exc)})
+
+    results["total_instances"] = total
+    return utils.module_result(data=results, errors=[])

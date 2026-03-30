@@ -62,3 +62,19 @@ export KINTOUN_WEB_DB='/opt/kintoun/kintoun_web.db'
 - Modules that call `input()` require values to be supplied in the UI (`one value per line`).
 - Runs are asynchronous and store stdout/stderr/result payloads for audit and review.
 
+## Module Metadata
+Each module now includes a required `MODULE_METADATA` dictionary at the top of the file.
+This metadata powers UI module descriptions, risk labels, and input hints.
+
+Use `modules/template.py` when creating new modules.
+
+Validate metadata:
+```bash
+python scripts/validate_module_metadata.py
+```
+
+## Module Migration
+- Legacy modules were archived under `modules_legacy/`.
+- New development should happen in `modules/` using `modules/template.py`.
+- The web UI reads `MODULE_METADATA` from modules in `modules/`.
+
