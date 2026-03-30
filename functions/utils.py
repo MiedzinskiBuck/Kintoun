@@ -1,7 +1,7 @@
 import tempfile
 import time
 from functions import region_parser as _region_parser
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 
 def parse_account_information(username, user_details, group_details, role_details, policy_details):

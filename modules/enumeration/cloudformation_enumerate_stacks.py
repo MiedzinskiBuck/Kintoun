@@ -1,5 +1,5 @@
 import botocore.exceptions
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import Cloudformation_handler, region_parser, utils
 
 def help():

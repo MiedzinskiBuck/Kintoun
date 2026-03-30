@@ -1,5 +1,5 @@
 import botocore
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import region_parser
 from functions import rds_handler, utils
 

@@ -1,5 +1,5 @@
 import botocore
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from modules.enumeration import iam_enumerate_assume_role
 from functions import create_client, utils
 

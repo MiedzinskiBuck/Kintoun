@@ -1,7 +1,7 @@
 # WORK IN PROGRESS
 
 import boto3
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 def help():
     print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)

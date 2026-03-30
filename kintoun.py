@@ -3,7 +3,7 @@ import importlib
 import os
 from functions import banner, change_agent, credential_handler
 from functions import utils
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 class Program:
     def __init__(self, args):

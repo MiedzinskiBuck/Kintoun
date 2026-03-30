@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card small">
+  <h1>Operator Login</h1>
+  <form method="post" class="form-grid">
+    <label>Username
+      <input type="text" name="username" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" required>
+    </label>
+    <button type="submit">Sign In</button>
+  </form>
+</section>
+{% endblock %}

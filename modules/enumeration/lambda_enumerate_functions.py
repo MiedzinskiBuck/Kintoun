@@ -1,5 +1,5 @@
 import botocore
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import lambda_handler, region_parser, utils
 
 # This is the help section. When used, it should print any help to the functionality of the module that may be necessary.

@@ -1,5 +1,5 @@
 import json 
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import iam_handler
 from functions import utils
 

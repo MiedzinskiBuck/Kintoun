@@ -2,7 +2,7 @@ import random
 import boto3
 import botocore
 from functools import lru_cache
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 
 @lru_cache(maxsize=1)

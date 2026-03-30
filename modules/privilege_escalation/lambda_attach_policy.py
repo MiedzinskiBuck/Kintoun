@@ -5,7 +5,7 @@ import zipfile
 from modules.enumeration import iam_whoami as whoami
 from modules.enumeration import iam_enumerate_assume_role
 from functions import create_client, iam_handler, utils
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 def create_lambda_client(botoconfig, session, region):
     client = create_client.Client(botoconfig, session, 'lambda', region)

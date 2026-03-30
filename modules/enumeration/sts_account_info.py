@@ -1,4 +1,4 @@
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import sts_handler, utils
 
 def help():

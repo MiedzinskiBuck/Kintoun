@@ -1,6 +1,6 @@
 import boto3
 import os
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import create_client
 
 def help():

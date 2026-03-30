@@ -1,7 +1,7 @@
 import signal
 import time
 import readchar
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 from functions import sqs_handler
 
 # This is the help section. When used, it should print any help to the functionality of the module that may be necessary.

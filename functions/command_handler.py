@@ -1,4 +1,4 @@
-from colorama import Fore, Style
+from functions.no_color import Fore, Style
 
 class Commands:
 

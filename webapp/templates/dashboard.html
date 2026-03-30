@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid two">
+  <article class="card">
+    <h2>Launch Module</h2>
+    <form method="post" action="{{ url_for('runs_new') }}" class="form-grid">
+      <label>Module
+        <select name="module_path" required>
+          <option value="">Select a module</option>
+          {% for m in modules %}
+          <option value="{{ m.path }}">{{ m.category }}/{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Credential
+        <select name="credential_id" required>
+          <option value="">Select credential</option>
+          {% for c in credentials %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Module Inputs (one value per line)
+        <textarea name="input_values" rows="6" placeholder="Only required for interactive modules."></textarea>
+      </label>
+      <button type="submit">Queue Run</button>
+    </form>
+  </article>
+
+  <article class="card">
+    <h2>Recent Runs</h2>
+    <p class="hint">Tip: double-click any run row to open full details.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Module</th>
+          <th>Credential</th>
+          <th>Status</th>
+          <th>Error Preview</th>
+          <th>Created</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr class="clickable-row" data-href="{{ url_for('run_detail', run_id=run.id) }}" ondblclick="window.location=this.dataset.href;">
+          <td><a href="{{ url_for('run_detail', run_id=run.id) }}">#{{ run.id }}</a></td>
+          <td><a href="{{ url_for('run_detail', run_id=run.id) }}">{{ run.module_category }}/{{ run.module_name }}</a></td>
+          <td>{{ run.credential_name }}</td>
+          <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
+          <td class="error-cell">
+            {% if run.error_text %}
+              {{ run.error_text.split('\n')[-2] if run.error_text.split('\n')|length > 1 else run.error_text }}
+            {% elif run.stderr %}
+              {{ run.stderr.split('\n')[0] }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ run.created_at }}</td>
+          <td><a class="inline-link" href="{{ url_for('run_detail', run_id=run.id) }}">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</section>
+{% endblock %}
