@@ -16,6 +16,24 @@
   <p><strong>Status:</strong> <span class="status {{ run.status }}">{{ run.status }}</span></p>
   <p><strong>Started:</strong> {{ run.started_at or '-' }}</p>
   <p><strong>Finished:</strong> {{ run.finished_at or '-' }}</p>
+  <p><strong>Depends On:</strong>
+    {% if dependencies %}
+      {% for d in dependencies %}
+        <a class="inline-link" href="{{ url_for('run_detail', run_id=d.id) }}">#{{ d.id }} ({{ d.module_category }}/{{ d.module_name }})</a>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    {% else %}
+      -
+    {% endif %}
+  </p>
+  <p><strong>Used By:</strong>
+    {% if dependents %}
+      {% for d in dependents %}
+        <a class="inline-link" href="{{ url_for('run_detail', run_id=d.id) }}">#{{ d.id }} ({{ d.module_category }}/{{ d.module_name }})</a>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    {% else %}
+      -
+    {% endif %}
+  </p>
 
   {% if run.status == "failed" %}
   <h2>Failure Summary</h2>

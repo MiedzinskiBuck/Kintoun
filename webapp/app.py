@@ -4,6 +4,7 @@ import ast
 import datetime as dt
 import hashlib
 import importlib
+import inspect
 import json
 import os
 import sqlite3
@@ -83,6 +84,7 @@ def create_app():
                 module_category TEXT NOT NULL,
                 module_name TEXT NOT NULL,
                 credential_id INTEGER NOT NULL,
+                depends_on_run_id INTEGER,
                 input_values_json TEXT,
                 status TEXT NOT NULL,
                 stdout TEXT,
@@ -95,6 +97,29 @@ def create_app():
                 FOREIGN KEY(user_id) REFERENCES users(id),
                 FOREIGN KEY(credential_id) REFERENCES credentials(id)
             );
+
+            CREATE TABLE IF NOT EXISTS run_dependencies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL,
+                depends_on_run_id INTEGER NOT NULL,
+                alias TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(run_id, depends_on_run_id)
+            );
+            """
+        )
+        run_columns = {
+            row["name"]
+            for row in db.execute("PRAGMA table_info(runs)").fetchall()
+        }
+        if "depends_on_run_id" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN depends_on_run_id INTEGER")
+        db.execute(
+            """
+            INSERT OR IGNORE INTO run_dependencies (run_id, depends_on_run_id, alias, created_at)
+            SELECT id, depends_on_run_id, NULL, created_at
+            FROM runs
+            WHERE depends_on_run_id IS NOT NULL
             """
         )
         db.commit()
@@ -144,6 +169,9 @@ def create_app():
                 "inputs": [],
                 "output_type": "json",
                 "risk_level": "low",
+                "dependencies": [],
+                "dependency_mode": "single",
+                "dependency_payload_key": None,
             }
             try:
                 source = module_file.read_text(encoding="utf-8")
@@ -227,10 +255,68 @@ def create_app():
 
                 module_path = f"modules.{run['module_category']}.{run['module_name']}"
                 module = importlib.import_module(module_path)
+                module_metadata = getattr(module, "MODULE_METADATA", {}) or {}
+
+                dependency_rows = db.execute(
+                    """
+                    SELECT
+                        d.depends_on_run_id,
+                        r.module_category,
+                        r.module_name,
+                        r.status,
+                        r.result_json
+                    FROM run_dependencies d
+                    JOIN runs r ON r.id = d.depends_on_run_id
+                    WHERE d.run_id = ?
+                    ORDER BY d.depends_on_run_id DESC
+                    """,
+                    (run_id,),
+                ).fetchall()
+                if not dependency_rows and run["depends_on_run_id"]:
+                    dependency_rows = db.execute(
+                        """
+                        SELECT
+                            ? AS depends_on_run_id,
+                            r.module_category,
+                            r.module_name,
+                            r.status,
+                            r.result_json
+                        FROM runs r
+                        WHERE r.id = ?
+                        """,
+                        (run["depends_on_run_id"], run["depends_on_run_id"]),
+                    ).fetchall()
+
+                dependency_context = {"by_run_id": {}, "by_module": {}}
+                for dep in dependency_rows:
+                    parsed_result = {}
+                    try:
+                        parsed_result = json.loads(dep["result_json"] or "{}")
+                    except Exception:
+                        parsed_result = {}
+                    dep_module_path = f"{dep['module_category']}/{dep['module_name']}"
+                    dep_entry = {
+                        "run_id": dep["depends_on_run_id"],
+                        "module_path": dep_module_path,
+                        "status": dep["status"],
+                        "result": parsed_result,
+                        "data": parsed_result.get("data", {}) if isinstance(parsed_result, dict) else {},
+                    }
+                    dependency_context["by_run_id"][str(dep["depends_on_run_id"])] = dep_entry
+                    dependency_context["by_module"].setdefault(dep_module_path, []).append(dep_entry)
 
                 builtins.input = fake_input
                 builtins.print = lambda *args, **kwargs: None
-                result = module.main(botoconfig, session_obj)
+                main_signature = inspect.signature(module.main)
+                accepts_context = len(main_signature.parameters) >= 3
+                if accepts_context:
+                    result = module.main(
+                        botoconfig,
+                        session_obj,
+                        {"dependency_context": dependency_context, "module_metadata": module_metadata},
+                    )
+                else:
+                    result = module.main(botoconfig, session_obj)
                 normalized_result = utils.normalize_module_output(result)
                 if normalized_result.get("status") == "error" and normalized_result.get("errors"):
                     status = "failed"
@@ -314,6 +400,24 @@ def create_app():
         ).fetchall()
         modules = get_modules_catalog()
         categories = sorted({m["category"] for m in modules})
+        dependency_runs = db.execute(
+            """
+            SELECT
+                r.id,
+                r.created_at,
+                r.credential_id,
+                r.module_category,
+                r.module_name,
+                c.name AS credential_name
+            FROM runs r
+            JOIN credentials c ON c.id = r.credential_id
+            WHERE r.user_id = ?
+              AND r.status = 'completed'
+            ORDER BY r.id DESC
+            LIMIT 300
+            """,
+            (session["user_id"],),
+        ).fetchall()
         return render_template(
             "dashboard.html",
             modules=modules,
@@ -321,6 +425,7 @@ def create_app():
             credentials=credentials,
             runs=runs,
             regions=regions,
+            dependency_runs=dependency_runs,
         )
 
     @app.route("/credentials")
@@ -427,6 +532,7 @@ def create_app():
         credential_id = request.form.get("credential_id", "").strip()
         input_values_text = request.form.get("input_values", "").strip()
         selected_region = request.form.get("selected_region", "").strip()
+        depends_on_run_ids = [v.strip() for v in request.form.getlist("depends_on_run_ids") if v.strip()]
 
         if "/" not in module_path:
             flash("Invalid module selection.", "error")
@@ -454,18 +560,79 @@ def create_app():
         if selected_region and (module_metadata.get("requires_region") or accepts_region_input):
             input_values = [selected_region] + input_values
 
+        module_dependencies = module_metadata.get("dependencies", []) or []
+        if not isinstance(module_dependencies, list):
+            module_dependencies = []
+        dependency_mode = module_metadata.get("dependency_mode", "single")
+        required_dependency_count = len(module_dependencies)
+
+        dependency_id_values = []
+        if module_dependencies:
+            if not depends_on_run_ids:
+                flash("This module requires dependency runs before queueing.", "error")
+                return redirect(url_for("dashboard"))
+            if dependency_mode == "single" and len(depends_on_run_ids) != 1:
+                flash("Select exactly one dependency run for this module.", "error")
+                return redirect(url_for("dashboard"))
+            if dependency_mode == "multiple" and len(depends_on_run_ids) < required_dependency_count:
+                flash("Select all required dependency runs for this module.", "error")
+                return redirect(url_for("dashboard"))
+            try:
+                dependency_id_values = [int(dep_id) for dep_id in depends_on_run_ids]
+            except ValueError:
+                flash("Invalid dependency run selected.", "error")
+                return redirect(url_for("dashboard"))
+
+            db = get_db()
+            placeholders = ",".join(["?"] * len(dependency_id_values))
+            dependency_rows = db.execute(
+                f"""
+                SELECT id, status, module_category, module_name, credential_id, user_id
+                FROM runs
+                WHERE id IN ({placeholders})
+                """,
+                tuple(dependency_id_values),
+            ).fetchall()
+            dependency_lookup = {int(row["id"]): row for row in dependency_rows}
+            selected_dependency_modules = set()
+            for dependency_id in dependency_id_values:
+                dependency_run = dependency_lookup.get(int(dependency_id))
+                if not dependency_run:
+                    flash(f"Dependency run #{dependency_id} not found.", "error")
+                    return redirect(url_for("dashboard"))
+                if int(dependency_run["user_id"]) != int(session["user_id"]):
+                    flash(f"Dependency run #{dependency_id} does not belong to current operator.", "error")
+                    return redirect(url_for("dashboard"))
+                if dependency_run["status"] != "completed":
+                    flash(f"Dependency run #{dependency_id} must be completed.", "error")
+                    return redirect(url_for("dashboard"))
+                dep_module_path = f"{dependency_run['module_category']}/{dependency_run['module_name']}"
+                if dep_module_path not in module_dependencies:
+                    flash(f"Dependency run #{dependency_id} is not valid for this module.", "error")
+                    return redirect(url_for("dashboard"))
+                selected_dependency_modules.add(dep_module_path)
+                if int(dependency_run["credential_id"]) != int(credential_id):
+                    flash(f"Dependency run #{dependency_id} credential must match selected credential.", "error")
+                    return redirect(url_for("dashboard"))
+            if dependency_mode == "multiple":
+                missing_dependencies = [dep for dep in module_dependencies if dep not in selected_dependency_modules]
+                if missing_dependencies:
+                    flash("Selected dependency runs do not cover all required dependency modules.", "error")
+                    return redirect(url_for("dashboard"))
+
         db = get_db()
         run_cursor = db.execute(
             """
             INSERT INTO runs
-            (user_id, module_category, module_name, credential_id, input_values_json, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (user_id, module_category, module_name, credential_id, depends_on_run_id, input_values_json, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session["user_id"],
                 category,
                 name,
                 int(credential_id),
+                dependency_id_values[0] if dependency_id_values else None,
                 json.dumps(input_values),
                 "queued",
                 _now(),
@@ -473,6 +640,16 @@ def create_app():
         )
         db.commit()
         run_id = run_cursor.lastrowid
+        if dependency_id_values:
+            for dependency_id in dependency_id_values:
+                db.execute(
+                    """
+                    INSERT OR IGNORE INTO run_dependencies (run_id, depends_on_run_id, alias, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (run_id, dependency_id, None, _now()),
+                )
+            db.commit()
 
         thread = threading.Thread(target=run_module_job, args=(run_id,), daemon=True)
         app.config["RUNNER_THREADS"][run_id] = thread
@@ -498,12 +675,41 @@ def create_app():
         if not run:
             flash("Run not found.", "error")
             return redirect(url_for("dashboard"))
-        return render_template("run_detail.html", run=run)
+        dependencies = db.execute(
+            """
+            SELECT
+                r.id,
+                r.module_category,
+                r.module_name,
+                r.status
+            FROM run_dependencies d
+            JOIN runs r ON r.id = d.depends_on_run_id
+            WHERE d.run_id = ?
+            ORDER BY r.id DESC
+            """,
+            (run_id,),
+        ).fetchall()
+        dependents = db.execute(
+            """
+            SELECT
+                r.id,
+                r.module_category,
+                r.module_name,
+                r.status
+            FROM run_dependencies d
+            JOIN runs r ON r.id = d.run_id
+            WHERE d.depends_on_run_id = ?
+            ORDER BY r.id DESC
+            """,
+            (run_id,),
+        ).fetchall()
+        return render_template("run_detail.html", run=run, dependencies=dependencies, dependents=dependents)
 
     @app.route("/runs/<int:run_id>/delete", methods=["POST"])
     @login_required
     def run_delete(run_id):
         db = get_db()
+        db.execute("DELETE FROM run_dependencies WHERE run_id = ? OR depends_on_run_id = ?", (run_id, run_id))
         db.execute("DELETE FROM runs WHERE id = ?", (run_id,))
         db.commit()
         flash(f"Run #{run_id} deleted.", "success")
@@ -521,6 +727,7 @@ def create_app():
             return redirect(url_for("dashboard"))
 
         deleted = db.execute("SELECT COUNT(1) AS c FROM runs").fetchone()
+        db.execute("DELETE FROM run_dependencies")
         db.execute("DELETE FROM runs")
         db.commit()
         db.execute("VACUUM")

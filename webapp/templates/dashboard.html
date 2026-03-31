@@ -32,6 +32,7 @@
         <p><strong>Description:</strong> <span id="module_info_description">Select a module to view details.</span></p>
         <p><strong>Requires Region:</strong> <span id="module_info_region">-</span></p>
         <p><strong>Risk Level:</strong> <span id="module_info_risk">-</span></p>
+        <p><strong>Dependencies:</strong> <span id="module_info_dependencies">None</span></p>
         <p><strong>Inputs:</strong></p>
         <ul id="module_info_inputs" class="module-input-list">
           <li>-</li>
@@ -39,10 +40,19 @@
       </section>
 
       <label>Credential
-        <select name="credential_id" required>
+        <select id="credential_id" name="credential_id" required>
           <option value="">Select credential</option>
           {% for c in credentials %}
           <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label id="depends_on_label" style="display:none;">Depends On Runs
+        <select id="depends_on_run_ids" name="depends_on_run_ids" multiple size="6">
+          <option value="">Select a dependency run</option>
+          {% for dr in dependency_runs %}
+          <option value="{{ dr.id }}" data-credential-id="{{ dr.credential_id }}" data-module-path="{{ dr.module_category }}/{{ dr.module_name }}">#{{ dr.id }} - {{ dr.module_category }}/{{ dr.module_name }} - {{ dr.credential_name }} - {{ dr.created_at }}</option>
           {% endfor %}
         </select>
       </label>
@@ -126,9 +136,13 @@
     const moduleDescription = document.getElementById("module_info_description");
     const moduleRegion = document.getElementById("module_info_region");
     const moduleRisk = document.getElementById("module_info_risk");
+    const moduleDependencies = document.getElementById("module_info_dependencies");
     const moduleInputs = document.getElementById("module_info_inputs");
     const runForm = document.getElementById("run_form");
     const regionSelect = document.getElementById("selected_region");
+    const credentialSelect = document.getElementById("credential_id");
+    const dependsOnLabel = document.getElementById("depends_on_label");
+    const dependsOnSelect = document.getElementById("depends_on_run_ids");
     const moduleCatalog = {{ modules | tojson }};
     if (!categoryFilter || !moduleSelect) return;
 
@@ -146,6 +160,7 @@
         moduleDescription.textContent = "Select a module to view details.";
         moduleRegion.textContent = "-";
         moduleRisk.textContent = "-";
+        moduleDependencies.textContent = "None";
         moduleInputs.innerHTML = "<li>-</li>";
         return;
       }
@@ -154,6 +169,8 @@
       moduleDescription.textContent = meta.description || "No description available.";
       moduleRegion.textContent = meta.requires_region ? "Yes" : "No";
       moduleRisk.textContent = (meta.risk_level || "low").toUpperCase();
+      const deps = Array.isArray(meta.dependencies) ? meta.dependencies : [];
+      moduleDependencies.textContent = deps.length ? deps.join(", ") : "None";
 
       const inputs = Array.isArray(meta.inputs) ? meta.inputs : [];
       let enrichedInputs = inputs.slice();
@@ -193,19 +210,107 @@
         opt.textContent = selectedCategory ? shortLabel : fullLabel;
       });
       renderModuleInfo("");
+      if (dependsOnLabel && dependsOnSelect) {
+        dependsOnLabel.style.display = "none";
+        dependsOnSelect.required = false;
+        for (const opt of Array.from(dependsOnSelect.options)) {
+          opt.selected = false;
+        }
+      }
+    }
+
+    function selectedDependencyRunIds() {
+      if (!dependsOnSelect) return [];
+      return Array.from(dependsOnSelect.selectedOptions)
+        .map((opt) => opt.value)
+        .filter((val) => !!val);
+    }
+
+    function filterDependencyRuns() {
+      if (!dependsOnSelect || !credentialSelect) return;
+      const selectedModule = moduleByPath(moduleSelect.value);
+      const selectedDependencies = (selectedModule && selectedModule.metadata && Array.isArray(selectedModule.metadata.dependencies))
+        ? selectedModule.metadata.dependencies
+        : [];
+      const selectedCredential = credentialSelect.value;
+      const options = Array.from(dependsOnSelect.options);
+      for (const opt of options) {
+        opt.selected = false;
+      }
+      options.forEach((opt, idx) => {
+        if (idx === 0) {
+          opt.hidden = true;
+          return;
+        }
+        const credId = opt.getAttribute("data-credential-id");
+        const modulePath = opt.getAttribute("data-module-path");
+        const credentialMismatch = !!selectedCredential && credId !== selectedCredential;
+        const moduleMismatch = selectedDependencies.length > 0 && !selectedDependencies.includes(modulePath);
+        opt.hidden = credentialMismatch || moduleMismatch;
+      });
     }
 
     categoryFilter.addEventListener("change", filterModules);
-    moduleSelect.addEventListener("change", () => renderModuleInfo(moduleSelect.value));
+    if (credentialSelect) {
+      credentialSelect.addEventListener("change", filterDependencyRuns);
+    }
+    moduleSelect.addEventListener("change", () => {
+      renderModuleInfo(moduleSelect.value);
+      const selected = moduleByPath(moduleSelect.value);
+      const deps = selected && selected.metadata && Array.isArray(selected.metadata.dependencies)
+        ? selected.metadata.dependencies
+        : [];
+      const mode = selected && selected.metadata && selected.metadata.dependency_mode
+        ? selected.metadata.dependency_mode
+        : "single";
+      const needsDependency = deps.length > 0;
+      if (dependsOnLabel && dependsOnSelect) {
+        dependsOnLabel.style.display = needsDependency ? "block" : "none";
+        dependsOnSelect.required = needsDependency;
+        dependsOnSelect.multiple = mode === "multiple";
+        dependsOnSelect.size = mode === "multiple" ? 8 : 6;
+        if (!needsDependency) {
+          for (const opt of Array.from(dependsOnSelect.options)) {
+            opt.selected = false;
+          }
+        } else {
+          filterDependencyRuns();
+        }
+      }
+    });
 
     if (runForm) {
       runForm.addEventListener("submit", (event) => {
         const selected = moduleByPath(moduleSelect.value);
         const requiresRegion = !!(selected && selected.metadata && selected.metadata.requires_region);
         const hasRegion = !!(regionSelect && regionSelect.value && regionSelect.value.trim());
+        const deps = selected && selected.metadata && Array.isArray(selected.metadata.dependencies)
+          ? selected.metadata.dependencies
+          : [];
+        const mode = selected && selected.metadata && selected.metadata.dependency_mode
+          ? selected.metadata.dependency_mode
+          : "single";
+        const needsDependency = deps.length > 0;
+        const selectedDepIds = selectedDependencyRunIds();
+        const hasDependency = selectedDepIds.length > 0;
         if (requiresRegion && !hasRegion) {
           event.preventDefault();
           alert("This module requires an AWS region. Please select one before queueing the run.");
+          return;
+        }
+        if (needsDependency && !hasDependency) {
+          event.preventDefault();
+          alert("This module requires dependency run(s) before queueing.");
+          return;
+        }
+        if (needsDependency && mode === "single" && selectedDepIds.length !== 1) {
+          event.preventDefault();
+          alert("Select exactly one dependency run for this module.");
+          return;
+        }
+        if (needsDependency && !credentialSelect.value) {
+          event.preventDefault();
+          alert("Select a credential before queueing the run.");
         }
       });
     }

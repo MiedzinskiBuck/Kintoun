@@ -14,6 +14,9 @@ MODULE_METADATA = {
     ],
     "output_type": "json",
     "risk_level": "low",
+    "dependencies": [],
+    "dependency_mode": "single",
+    "dependency_payload_key": None,
 }
 
 from functions import utils
@@ -29,8 +32,9 @@ def collect_inputs():
     return {}
 
 
-def main(botoconfig, session):
+def main(botoconfig, session, context=None):
     _ = (botoconfig, session)
+    _ = context
     inputs = collect_inputs()
     result_data = {
         "message": "Template module executed.",
