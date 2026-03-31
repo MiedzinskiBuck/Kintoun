@@ -7,6 +7,7 @@ MODULE_METADATA = {
     "inputs": [],
     "output_type": "json",
     "risk_level": "low",
+    "result_view": "iam_enumerate_roles",
 }
 
 from functions import iam_handler, utils

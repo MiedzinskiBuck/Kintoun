@@ -7,6 +7,7 @@ MODULE_METADATA = {
     "inputs": [],
     "output_type": "json",
     "risk_level": "low",
+    "result_view": "iam_enumerate_role_trust_policy",
     "dependencies": ["enumeration/iam_enumerate_roles"],
     "dependency_mode": "single",
     "dependency_payload_key": "roles",

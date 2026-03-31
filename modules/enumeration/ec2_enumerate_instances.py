@@ -14,6 +14,7 @@ MODULE_METADATA = {
     ],
     "output_type": "json",
     "risk_level": "low",
+    "result_view": "ec2_enumerate_instances",
 }
 
 import botocore

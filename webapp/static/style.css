@@ -166,6 +166,30 @@ th { color: var(--muted); font-weight: 600; }
 .module-input-list li {
   margin-bottom: 4px;
 }
+.result-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+.result-kpi {
+  border: 1px solid #374151;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.55);
+}
+.result-kpi h3 {
+  margin: 0;
+  font-size: 22px;
+}
+.result-kpi p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+details summary {
+  cursor: pointer;
+  color: #93c5fd;
+}
 
 .status { padding: 2px 8px; border-radius: 999px; font-size: 12px; text-transform: uppercase; }
 .status.queued { background: #1f2937; color: #d1d5db; }

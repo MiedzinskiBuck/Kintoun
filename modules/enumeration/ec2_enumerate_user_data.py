@@ -14,6 +14,7 @@ MODULE_METADATA = {
     ],
     "output_type": "json",
     "risk_level": "medium",
+    "result_view": "ec2_enumerate_user_data",
     "dependencies": ["enumeration/ec2_enumerate_instances"],
     "dependency_mode": "single",
     "dependency_payload_key": "regions",

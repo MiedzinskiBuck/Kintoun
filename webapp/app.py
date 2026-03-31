@@ -169,6 +169,7 @@ def create_app():
                 "inputs": [],
                 "output_type": "json",
                 "risk_level": "low",
+                "result_view": "default",
                 "dependencies": [],
                 "dependency_mode": "single",
                 "dependency_payload_key": None,
@@ -205,6 +206,166 @@ def create_app():
                     }
                 )
         return catalog
+
+    def _parse_json_or_empty(value):
+        if not value:
+            return {}
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+
+    def _present_default(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        errors = result_obj.get("errors", []) if isinstance(result_obj, dict) else []
+        return {
+            "title": f"{run_row['module_category']}/{run_row['module_name']}",
+            "highlights": [
+                {"label": "Status", "value": run_row["status"]},
+                {"label": "Errors", "value": len(errors)},
+            ],
+            "sections": [
+                {
+                    "title": "Data Overview",
+                    "columns": ["Key", "Value"],
+                    "rows": [{"Key": k, "Value": str(v)} for k, v in data.items()][:50],
+                }
+            ],
+        }
+
+    def _present_ec2_enumerate_instances(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        regions = data.get("regions", {}) if isinstance(data, dict) else {}
+        rows = []
+        for region, instances in regions.items():
+            rows.append({"Region": region, "Instances": len(instances or [])})
+        rows.sort(key=lambda r: r["Region"])
+        return {
+            "title": "EC2 Instance Inventory",
+            "highlights": [
+                {"label": "Total Instances", "value": data.get("total_instances", 0)},
+                {"label": "Regions Scanned", "value": len(regions)},
+                {"label": "Regions With Instances", "value": sum(1 for r in rows if r["Instances"] > 0)},
+            ],
+            "sections": [
+                {
+                    "title": "Instances by Region",
+                    "columns": ["Region", "Instances"],
+                    "rows": rows,
+                }
+            ],
+        }
+
+    def _present_ec2_enumerate_user_data(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        regions = data.get("regions", {}) if isinstance(data, dict) else {}
+        rows = []
+        for region, details in regions.items():
+            region_count = 0
+            user_data_count = 0
+            if isinstance(details, dict):
+                region_count = details.get("count_instances", 0)
+                user_data_count = details.get("count_with_user_data", 0)
+            rows.append(
+                {
+                    "Region": region,
+                    "Instances": region_count,
+                    "WithUserData": user_data_count,
+                }
+            )
+        rows.sort(key=lambda r: r["Region"])
+        return {
+            "title": "EC2 User Data Coverage",
+            "highlights": [
+                {"label": "Total Instances", "value": data.get("total_instances", 0)},
+                {"label": "With User Data", "value": data.get("total_with_user_data", 0)},
+                {"label": "Regions Scanned", "value": len(regions)},
+            ],
+            "sections": [
+                {
+                    "title": "User Data by Region",
+                    "columns": ["Region", "Instances", "WithUserData"],
+                    "rows": rows,
+                }
+            ],
+        }
+
+    def _present_iam_enumerate_roles(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        roles = data.get("roles", []) if isinstance(data, dict) else []
+        rows = []
+        for role in roles[:200]:
+            rows.append(
+                {
+                    "RoleName": role.get("role_name"),
+                    "Path": role.get("path"),
+                    "Arn": role.get("arn"),
+                }
+            )
+        return {
+            "title": "IAM Roles Inventory",
+            "highlights": [
+                {"label": "Role Count", "value": data.get("count", len(roles))},
+            ],
+            "sections": [
+                {
+                    "title": "Roles",
+                    "columns": ["RoleName", "Path", "Arn"],
+                    "rows": rows,
+                }
+            ],
+        }
+
+    def _present_iam_role_trust(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        roles = data.get("roles", []) if isinstance(data, dict) else []
+        rows = []
+        for role in roles[:300]:
+            entities = role.get("trusted_entities", [])
+            sample = ", ".join(
+                f"{e.get('principal_type')}:{e.get('value')}" for e in entities[:3]
+            )
+            rows.append(
+                {
+                    "RoleName": role.get("role_name"),
+                    "TrustedEntities": role.get("trusted_entity_count", 0),
+                    "Sample": sample or "-",
+                }
+            )
+        return {
+            "title": "IAM Role Trust Relationships",
+            "highlights": [
+                {"label": "Roles Analyzed", "value": data.get("count_roles", len(roles))},
+                {"label": "Total Trusted Entities", "value": data.get("count_trusted_entities", 0)},
+                {"label": "Dependency Used", "value": "Yes" if data.get("dependency_used") else "No"},
+            ],
+            "sections": [
+                {
+                    "title": "Role Trust Summary",
+                    "columns": ["RoleName", "TrustedEntities", "Sample"],
+                    "rows": rows,
+                }
+            ],
+        }
+
+    def _build_presenter(run_row, result_obj, result_view=None):
+        module_path = f"{run_row['module_category']}/{run_row['module_name']}"
+        presenters = {
+            "ec2_enumerate_instances": _present_ec2_enumerate_instances,
+            "ec2_enumerate_user_data": _present_ec2_enumerate_user_data,
+            "iam_enumerate_roles": _present_iam_enumerate_roles,
+            "iam_enumerate_role_trust_policy": _present_iam_role_trust,
+            "enumeration/ec2_enumerate_instances": _present_ec2_enumerate_instances,
+            "enumeration/ec2_enumerate_user_data": _present_ec2_enumerate_user_data,
+            "enumeration/iam_enumerate_roles": _present_iam_enumerate_roles,
+            "enumeration/iam_enumerate_role_trust_policy": _present_iam_role_trust,
+        }
+        presenter = presenters.get(result_view) or presenters.get(module_path) or _present_default
+        try:
+            return presenter(run_row, result_obj)
+        except Exception:
+            return _present_default(run_row, result_obj)
 
     def run_module_job(run_id: int):
         with app.app_context():
@@ -703,7 +864,22 @@ def create_app():
             """,
             (run_id,),
         ).fetchall()
-        return render_template("run_detail.html", run=run, dependencies=dependencies, dependents=dependents)
+        result_obj = _parse_json_or_empty(run["result_json"])
+        module_path = f"{run['module_category']}/{run['module_name']}"
+        modules_catalog = get_modules_catalog()
+        selected_module = next((m for m in modules_catalog if m["path"] == module_path), None)
+        result_view = None
+        if selected_module and isinstance(selected_module.get("metadata"), dict):
+            result_view = selected_module["metadata"].get("result_view")
+        presenter = _build_presenter(run, result_obj, result_view=result_view)
+        return render_template(
+            "run_detail.html",
+            run=run,
+            dependencies=dependencies,
+            dependents=dependents,
+            result_obj=result_obj,
+            presenter=presenter,
+        )
 
     @app.route("/runs/<int:run_id>/delete", methods=["POST"])
     @login_required

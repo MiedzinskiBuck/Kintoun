@@ -35,13 +35,54 @@
     {% endif %}
   </p>
 
+  <h2>{{ presenter.title }}</h2>
+  <section class="result-highlights">
+    {% for item in presenter.highlights %}
+    <article class="result-kpi">
+      <h3>{{ item.value }}</h3>
+      <p>{{ item.label }}</p>
+    </article>
+    {% endfor %}
+  </section>
+
+  {% for section in presenter.sections %}
+  <h2>{{ section.title }}</h2>
+  {% if section.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for col in section.columns %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in section.rows %}
+        <tr>
+          {% for col in section.columns %}
+          <td>{{ row.get(col, '-') }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No rows available.</p>
+  {% endif %}
+  {% endfor %}
+
   {% if run.status == "failed" %}
   <h2>Failure Summary</h2>
   <pre>{% if run.error_text %}{{ run.error_text.split('\n')[-2] if run.error_text.split('\n')|length > 1 else run.error_text }}{% elif run.stderr %}{{ run.stderr.split('\n')[0] }}{% else %}Unknown execution error{% endif %}</pre>
   {% endif %}
 
   <h2>Result JSON</h2>
-  <pre>{{ run.result_json or '' }}</pre>
+  <details>
+    <summary>Show raw JSON</summary>
+    <pre>{{ run.result_json or '' }}</pre>
+  </details>
 
   {% if run.error_text %}
   <h2>Execution Error</h2>
