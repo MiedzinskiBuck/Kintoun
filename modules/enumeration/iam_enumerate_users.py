@@ -1,18 +1,38 @@
-from colorama import Fore, Style
-from functions import iam_handler
+MODULE_METADATA = {
+    "name": "iam_enumerate_users",
+    "display_name": "IAM Enumerate Users",
+    "category": "enumeration",
+    "description": "Enumerate IAM users in the current AWS account.",
+    "requires_region": False,
+    "inputs": [],
+    "output_type": "json",
+    "risk_level": "low",
+}
+
+from functions import iam_handler, utils
+
 
 def help():
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Module Description:\n")
-    print("\tThis module will enumerate existing users on the account.")
-    print("\tIt will print the 'UserName' and 'Arn' of the found users.\n")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+    return
+
 
 def main(botoconfig, session):
     iam = iam_handler.IAM(botoconfig, session)
-    users = iam.enumerate_users()
-    for user in users["Users"]:
-        print("\n[+] UserName: " + Fore.GREEN + "{}".format(user["UserName"] + Style.RESET_ALL))
-        print("[+] Arn: " + Fore.GREEN + "{}".format(user["Arn"] + Style.RESET_ALL))
+    response = iam.enumerate_users()
 
-    return users
+    users = []
+    for user in response.get("Users", []):
+        users.append(
+            {
+                "user_name": user.get("UserName"),
+                "arn": user.get("Arn"),
+                "user_id": user.get("UserId"),
+                "created": str(user.get("CreateDate")),
+            }
+        )
+
+    data = {
+        "count": len(users),
+        "users": users,
+    }
+    return utils.module_result(data=data)

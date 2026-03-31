@@ -1,7 +1,14 @@
 import random
 import boto3
 import botocore
-from colorama import Fore, Style
+from functools import lru_cache
+from functions.no_color import Fore, Style
+
+
+@lru_cache(maxsize=1)
+def load_safe_user_agents():
+    with open("data/user_agents.txt", "r") as user_agents_file:
+        return user_agents_file.read().splitlines()
 
 class Agent:
 
@@ -11,8 +18,7 @@ class Agent:
 
     def __new__(self):
         print("[+] Checking User Agent...\n")
-        user_agents_file = open("data/user_agents.txt", "r")
-        safe_user_agents = user_agents_file.read().splitlines()
+        safe_user_agents = load_safe_user_agents()
 
         user_agent = boto3.session.Session()._session.user_agent().lower()
 

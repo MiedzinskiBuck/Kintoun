@@ -24,7 +24,7 @@ class SSM():
                     ]
                 }
             ])
-        except:
+        except botocore.exceptions.ClientError:
             return None
 
         return response
@@ -48,6 +48,19 @@ class SSM():
         response = self.client.get_command_invocation(
             CommandId=command_id,
             InstanceId=instance_id
+        )
+
+        return response
+
+    def describe_parameters(self):
+        response = self.client.describe_parameters()
+
+        return response
+
+    def get_parameter(self, parameter_name):
+        response = self.client.get_parameter(
+            Name=parameter_name,
+            WithDecryption=True
         )
 
         return response

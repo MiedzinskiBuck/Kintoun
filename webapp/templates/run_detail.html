@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="row">
+    <h1>Run #{{ run.id }}</h1>
+    <div class="row-actions">
+      <form method="post" action="{{ url_for('run_delete', run_id=run.id) }}" onsubmit="return confirm('Delete run #{{ run.id }}?');">
+        <button type="submit" class="danger">Delete Run</button>
+      </form>
+      <a class="button" href="{{ url_for('dashboard') }}">Back</a>
+    </div>
+  </div>
+  <p><strong>Operator:</strong> {{ run.username }}</p>
+  <p><strong>Module:</strong> {{ run.module_category }}/{{ run.module_name }}</p>
+  <p><strong>Credential:</strong> {{ run.credential_name }}</p>
+  <p><strong>Status:</strong> <span class="status {{ run.status }}">{{ run.status }}</span></p>
+  <p><strong>Started:</strong> {{ run.started_at or '-' }}</p>
+  <p><strong>Finished:</strong> {{ run.finished_at or '-' }}</p>
+
+  {% if run.status == "failed" %}
+  <h2>Failure Summary</h2>
+  <pre>{% if run.error_text %}{{ run.error_text.split('\n')[-2] if run.error_text.split('\n')|length > 1 else run.error_text }}{% elif run.stderr %}{{ run.stderr.split('\n')[0] }}{% else %}Unknown execution error{% endif %}</pre>
+  {% endif %}
+
+  <h2>Result JSON</h2>
+  <pre>{{ run.result_json or '' }}</pre>
+
+  {% if run.error_text %}
+  <h2>Execution Error</h2>
+  <pre>{{ run.error_text }}</pre>
+  {% endif %}
+</section>
+{% endblock %}

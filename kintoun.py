@@ -1,8 +1,9 @@
 import argparse
 import importlib
 import os
-from functions import banner, change_agent, credential_handler
-from colorama import Fore, Style
+import json
+from functions import change_agent, credential_handler
+from functions import utils
 
 class Program:
     def __init__(self, args):
@@ -30,35 +31,32 @@ class Program:
         return credentials.session
 
     def run(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Running "+Fore.GREEN+f"/{self.args.category}/{self.args.module}"+Style.RESET_ALL+" module...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-
         session = self.parseCredentials()
         try:
             module_path = f"modules/{self.args.category}/{self.args.module}"
             module_path = module_path.replace('/', '.').replace('\\', '.')
             module = importlib.import_module(module_path)
-            self.module_info = module.main(self.botoconfig, session)
+            with utils.suppress_print():
+                module_output = module.main(self.botoconfig, session)
+            self.module_info = self.normalize_module_output(module_output)
 
         except ModuleNotFoundError:
             raise ModuleNotFoundError("\n[-] Module not found...Type 'modules' for a list of available modules...")
+        print(json.dumps(self.module_info, indent=2, default=str))
 
     def console(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Creating console link...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-
         session = self.parseCredentials()
         console_module_path = "modules.misc.console"
         console_module = importlib.import_module(console_module_path)
-        self.module_info = console_module.main(self.botoconfig, session)
+        with utils.suppress_print():
+            module_output = console_module.main(self.botoconfig, session)
+        self.module_info = self.normalize_module_output(module_output)
+        print(json.dumps(self.module_info, indent=2, default=str))
+
+    def normalize_module_output(self, module_output):
+        return utils.normalize_module_output(module_output)
     
     def list_modules(self):
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-        print("Listing available modules...")
-        print(Fore.YELLOW + "===================================================================================================================" + Style.RESET_ALL)
-
         catalog = {}
         categories = os.listdir("./modules/")
         for category in categories:
@@ -68,20 +66,21 @@ class Program:
             except NotADirectoryError:
                 pass
 
+        normalized_catalog = {}
         for module_category in catalog:
             if module_category.upper() == "__PYCACHE__" or module_category.upper() == "__INIT__":
                 pass
             else:
-                print(Fore.GREEN + "\n{}\n".format(module_category.upper()) + Style.RESET_ALL)
+                normalized_catalog[module_category] = []
                 for module in catalog[module_category]:
                     if module.upper() == "__PYCACHE__" or module.strip(".py").upper() == "__INIT__":
                         pass
                     else:
-                        print("- {}/{}".format(module_category, module.strip(".py")))
+                        normalized_catalog[module_category].append(module.strip(".py"))
+        self.module_info = utils.module_result(data=normalized_catalog)
+        print(json.dumps(self.module_info, indent=2, default=str))
 
 if __name__ == '__main__':
-    banner.Banner()
-
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument('--user-agent', '-u')
     parent_parser.add_argument('--profile', '-p', nargs='?', const='default')

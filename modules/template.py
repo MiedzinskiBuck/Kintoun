@@ -1,23 +1,39 @@
-import boto3
-from colorama import Fore, Style
-from functions import create_client
+MODULE_METADATA = {
+    "name": "my_module_name",
+    "display_name": "My Module Name",
+    "category": "enumeration",
+    "description": "Describe what this module does in one clear sentence.",
+    "requires_region": False,
+    "inputs": [
+        {
+            "name": "example_input",
+            "type": "string",
+            "required": False,
+            "description": "Describe this input and expected format.",
+        }
+    ],
+    "output_type": "json",
+    "risk_level": "low",
+}
 
-# This is the help section. When used, it should print any help to the functionality of the module that may be necessary.
+from functions import utils
+
+
 def help():
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Module Description:\n")
-    print("\t")
+    return
 
-    print("[+] Module Functionality:\n")
-    print("\t")
 
-    print("[+] IMPORTANT:\n")
-    print("\t")
-    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+def collect_inputs():
+    # input_value = input("Example input: ")
+    # return {"example_input": input_value}
+    return {}
 
-# The main function will orchestrate the functionality of the module. The idea is that it will call whatever needs calling and returns the results from the module to be parsed and stored.
-# It will be called from the main program with the botoconfig, that changes the user agent, and the session, which stores the profile credentials to be used.
-def main(botoconfig, session, selected_session):
-    # module code, calls, etc...
-    # return module_results
-    pass
+
+def main(botoconfig, session):
+    _ = (botoconfig, session)
+    inputs = collect_inputs()
+    result_data = {
+        "message": "Template module executed.",
+        "inputs": inputs,
+    }
+    return utils.module_result(data=result_data)

@@ -26,3 +26,55 @@ docker run -i miedzinski/kintoun [ARGUMENTS]
 ## TODO
 Improve docker experience and overal improvements
 
+## Web Control Plane (Flask)
+Kintoun now includes a web control plane so multiple operators can:
+- Manage AWS credentials (stored encrypted at rest)
+- Launch modules from a shared UI
+- Provide interactive module inputs
+- Track run status and review logs/results
+
+### Run locally
+```bash
+pip install -r requirements.txt
+python run_web.py
+```
+
+Then open:
+```text
+http://127.0.0.1:5000
+```
+
+### Default login
+- Username: `admin`
+- Password: `admin123!`
+
+You should override these in production:
+```bash
+export KINTOUN_ADMIN_USER=operator_admin
+export KINTOUN_ADMIN_PASS='strong-password-here'
+export KINTOUN_WEB_SECRET='strong-random-secret'
+export KINTOUN_CRED_KEY='separate-credential-encryption-secret'
+export KINTOUN_WEB_DB='/opt/kintoun/kintoun_web.db'
+```
+
+### Notes
+- The web runner executes existing module `main(botoconfig, session)` functions.
+- Modules that call `input()` require values to be supplied in the UI (`one value per line`).
+- Runs are asynchronous and store stdout/stderr/result payloads for audit and review.
+
+## Module Metadata
+Each module now includes a required `MODULE_METADATA` dictionary at the top of the file.
+This metadata powers UI module descriptions, risk labels, and input hints.
+
+Use `modules/template.py` when creating new modules.
+
+Validate metadata:
+```bash
+python scripts/validate_module_metadata.py
+```
+
+## Module Migration
+- Legacy modules were archived under `modules_legacy/`.
+- New development should happen in `modules/` using `modules/template.py`.
+- The web UI reads `MODULE_METADATA` from modules in `modules/`.
+

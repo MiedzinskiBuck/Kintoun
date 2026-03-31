@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid dashboard-grid">
+  <article class="card launch-card">
+    <h2>Launch Module</h2>
+    <form id="run_form" method="post" action="{{ url_for('runs_new') }}" class="form-grid">
+      <label>Category
+        <select id="category_filter" name="category_filter">
+          <option value="">All categories</option>
+          {% for c in categories %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Module
+        <select id="module_select" name="module_path" required>
+          <option value="">Select a module</option>
+          {% for m in modules %}
+          <option
+            value="{{ m.path }}"
+            data-category="{{ m.category }}"
+            data-full-label="{{ m.category }}/{{ m.name }}"
+            data-short-label="{{ m.name }}"
+          >{{ m.category }}/{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <section class="module-widget" id="module_widget">
+        <h3>Module</h3>
+        <p><strong>Name:</strong> <span id="module_info_name">-</span></p>
+        <p><strong>Description:</strong> <span id="module_info_description">Select a module to view details.</span></p>
+        <p><strong>Requires Region:</strong> <span id="module_info_region">-</span></p>
+        <p><strong>Risk Level:</strong> <span id="module_info_risk">-</span></p>
+        <p><strong>Inputs:</strong></p>
+        <ul id="module_info_inputs" class="module-input-list">
+          <li>-</li>
+        </ul>
+      </section>
+
+      <label>Credential
+        <select name="credential_id" required>
+          <option value="">Select credential</option>
+          {% for c in credentials %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>AWS Region (optional, prepended to module inputs)
+        <select id="selected_region" name="selected_region">
+          <option value="">No preselected region</option>
+          {% for r in regions %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="hint">Applied automatically for modules that require region or define an optional <code>region</code> input.</p>
+
+      <label>Module Inputs (one value per line)
+        <textarea name="input_values" rows="6" placeholder="Only required for interactive modules."></textarea>
+      </label>
+      <button type="submit">Queue Run</button>
+    </form>
+  </article>
+
+  <article class="card runs-card">
+    <div class="row">
+      <h2>Recent Runs</h2>
+      <div class="row-actions">
+        <a class="button" href="{{ url_for('dashboard') }}">Refresh</a>
+        <form method="post" action="{{ url_for('runs_clear') }}" onsubmit="return confirm('Delete all past runs and compact the database? This cannot be undone.');">
+          <button type="submit" class="danger tiny">Clear Runs</button>
+        </form>
+      </div>
+    </div>
+    <p class="hint">Tip: double-click any run row to open full details.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Module</th>
+            <th>Credential</th>
+            <th>Status</th>
+            <th>Error Preview</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+          <tr class="clickable-row" data-href="{{ url_for('run_detail', run_id=run.id) }}" ondblclick="window.location=this.dataset.href;">
+            <td><a href="{{ url_for('run_detail', run_id=run.id) }}">#{{ run.id }}</a></td>
+            <td><a href="{{ url_for('run_detail', run_id=run.id) }}">{{ run.module_category }}/{{ run.module_name }}</a></td>
+            <td>{{ run.credential_name }}</td>
+            <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
+            <td class="error-cell">
+              {% if run.error_text %}
+                {{ run.error_text.split('\n')[-2] if run.error_text.split('\n')|length > 1 else run.error_text }}
+              {% elif run.stderr %}
+                {{ run.stderr.split('\n')[0] }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{{ run.created_at }}</td>
+            <td class="run-actions">
+              <a class="inline-link" href="{{ url_for('run_detail', run_id=run.id) }}">Open</a>
+              <form method="post" action="{{ url_for('run_delete', run_id=run.id) }}" onsubmit="return confirm('Delete run #{{ run.id }}?');" onclick="event.stopPropagation();">
+                <button type="submit" class="danger tiny">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>
+<script>
+  (function () {
+    const categoryFilter = document.getElementById("category_filter");
+    const moduleSelect = document.getElementById("module_select");
+    const moduleName = document.getElementById("module_info_name");
+    const moduleDescription = document.getElementById("module_info_description");
+    const moduleRegion = document.getElementById("module_info_region");
+    const moduleRisk = document.getElementById("module_info_risk");
+    const moduleInputs = document.getElementById("module_info_inputs");
+    const runForm = document.getElementById("run_form");
+    const regionSelect = document.getElementById("selected_region");
+    const moduleCatalog = {{ modules | tojson }};
+    if (!categoryFilter || !moduleSelect) return;
+
+    function moduleByPath(path) {
+      for (const m of moduleCatalog) {
+        if (m.path === path) return m;
+      }
+      return null;
+    }
+
+    function renderModuleInfo(path) {
+      const selected = moduleByPath(path);
+      if (!selected) {
+        moduleName.textContent = "-";
+        moduleDescription.textContent = "Select a module to view details.";
+        moduleRegion.textContent = "-";
+        moduleRisk.textContent = "-";
+        moduleInputs.innerHTML = "<li>-</li>";
+        return;
+      }
+      const meta = selected.metadata || {};
+      moduleName.textContent = meta.display_name || selected.name;
+      moduleDescription.textContent = meta.description || "No description available.";
+      moduleRegion.textContent = meta.requires_region ? "Yes" : "No";
+      moduleRisk.textContent = (meta.risk_level || "low").toUpperCase();
+
+      const inputs = Array.isArray(meta.inputs) ? meta.inputs : [];
+      let enrichedInputs = inputs.slice();
+      if (meta.requires_region && !enrichedInputs.some((i) => i.name === "region")) {
+        enrichedInputs.unshift({
+          name: "region",
+          type: "region",
+          required: false,
+          description: "Optional region selector (defaults to all where supported).",
+        });
+      }
+
+      if (!enrichedInputs.length) {
+        moduleInputs.innerHTML = "<li>None</li>";
+      } else {
+        moduleInputs.innerHTML = enrichedInputs.map((input) => {
+          const req = input.required ? "required" : "optional";
+          return `<li><code>${input.name}</code> (${input.type}, ${req}) - ${input.description}</li>`;
+        }).join("");
+      }
+    }
+
+    function filterModules() {
+      const selectedCategory = categoryFilter.value;
+      const options = Array.from(moduleSelect.options);
+      moduleSelect.value = "";
+
+      options.forEach((opt, idx) => {
+        if (idx === 0) {
+          opt.hidden = false;
+          return;
+        }
+        const category = opt.getAttribute("data-category");
+        const fullLabel = opt.getAttribute("data-full-label");
+        const shortLabel = opt.getAttribute("data-short-label");
+        opt.hidden = !!selectedCategory && category !== selectedCategory;
+        opt.textContent = selectedCategory ? shortLabel : fullLabel;
+      });
+      renderModuleInfo("");
+    }
+
+    categoryFilter.addEventListener("change", filterModules);
+    moduleSelect.addEventListener("change", () => renderModuleInfo(moduleSelect.value));
+
+    if (runForm) {
+      runForm.addEventListener("submit", (event) => {
+        const selected = moduleByPath(moduleSelect.value);
+        const requiresRegion = !!(selected && selected.metadata && selected.metadata.requires_region);
+        const hasRegion = !!(regionSelect && regionSelect.value && regionSelect.value.trim());
+        if (requiresRegion && !hasRegion) {
+          event.preventDefault();
+          alert("This module requires an AWS region. Please select one before queueing the run.");
+        }
+      });
+    }
+  })();
+</script>
+{% endblock %}

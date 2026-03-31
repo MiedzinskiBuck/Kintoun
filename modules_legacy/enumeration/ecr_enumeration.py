@@ -1,0 +1,53 @@
+MODULE_METADATA = {
+    'name': 'ecr_enumeration',
+    'display_name': 'Ecr Enumeration',
+    'category': 'enumeration',
+    'description': 'Enumerate ECR repositories across selected regions.',
+    'requires_region': True,
+    'inputs': [],
+    'output_type': 'json',
+    'risk_level': 'low'
+}
+from functions.no_color import Fore, Style
+from functions import ecr_handler, sts_handler, utils
+
+def help():
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Module Description:\n")
+    print("\tThis module will enumerate ecr repositories and images on the account.")
+    print("\tThe default options will enumerate ecr images in all regions.\n")
+    print(Fore.YELLOW + "================================================================================================" + Style.RESET_ALL)
+
+def get_optional_regions():
+    optional_region = utils.region_parser()
+
+    return optional_region 
+
+def main(botoconfig, session):
+    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
+    print("[+] Starting ECR enumeration...")
+    region_option = get_optional_regions()
+    sts = sts_handler.STS(botoconfig, session)
+    account_id = sts.get_caller_identity()['Account']
+
+    for region in region_option:
+        print(f"[+] Enumerating Repositories in {Fore.GREEN}{region}{Style.RESET_ALL}")
+        ecr = ecr_handler.ECR(botoconfig, session, region)
+        repositories = ecr.describe_repositories(account_id)
+        repository_list = []
+        if repositories:
+            if repositories.get('repositories'):
+                repository_list.extend(repositories['repositories'])
+
+                while repositories.get('nextToken'):
+                    repositories = ecr.describe_repositories(account_id, repositories['nextToken'])
+                    if repositories.get('repositories'):
+                        repository_list.extend(repositories['repositories'])
+                        
+        if repository_list:
+            for repository in repository_list:
+                print(f"[+] Image: {Fore.YELLOW}{repository['repositoryArn']}{Style.RESET_ALL}")
+
+
+
+

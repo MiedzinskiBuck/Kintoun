@@ -1,10 +1,14 @@
 import os
 import readline
 import re
-from functions import data_parser
 
-parser = data_parser.Parser()
-catalog = parser.completion_data()
+try:
+    from functions import data_parser
+    parser = data_parser.Parser()
+    catalog = parser.completion_data()
+except ImportError:
+    catalog = {}
+
 RE_SPACE = re.compile('.*\s+$', re.M)
 
 class Completer(object):
@@ -36,20 +40,22 @@ class Completer(object):
     def complete_extra(self, args):
         if not args:
             return self._complete_path('.')
-        return self._complete_paths(args[-1])
+        return self._complete_path(args[-1])
 
     def complete(self, text, state):
         buffer = readline.get_line_buffer()
         line = readline.get_line_buffer().split()
 
         if not line:
-            return [c + ' ' for c in catalog][state]
+            return ([c + ' ' for c in catalog] + [None])[state]
         
         if RE_SPACE.match(buffer):
             line.append('')
         cmd = line[0].strip()
         if cmd in catalog:
-            impl = getattr(self, 'complete_%s' % cmd)
+            impl = getattr(self, 'complete_%s' % cmd, None)
+            if impl is None:
+                return [cmd + ' ', None][state]
             args = line[1:]
             if args:
                 return (impl(args) + [None])[state]

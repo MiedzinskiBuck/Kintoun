@@ -1,55 +1,86 @@
-import boto3
-from colorama import Fore, Style
-from functions import create_client
-from functions import region_parser
+MODULE_METADATA = {
+    "name": "lambda_enumerate_functions",
+    "display_name": "Lambda Enumerate Functions",
+    "category": "enumeration",
+    "description": "Enumerate Lambda functions in a selected region or across all regions.",
+    "requires_region": False,
+    "inputs": [
+        {
+            "name": "region",
+            "type": "region",
+            "required": False,
+            "description": "Optional AWS region. Leave empty to enumerate all regions.",
+        }
+    ],
+    "output_type": "json",
+    "risk_level": "low",
+}
 
-# This is the help section. When used, it should print any help to the functionality of the module that may be necessary.
+from functions import lambda_handler, region_parser, utils
+
+
 def help():
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Module Description:\n")
-    print("\tThis module will enumerate lambda functions from a given region.")
-    print("\tIt will print the ARN of those functions and store its details on the results folder.")
+    return
 
-    print("[+] Module Functionality:\n")
-    print("\tJust run the module and select which region you want to enumerate.")
 
-def create_lambda_client(botoconfig, session, region):
-    client = create_client.Client(botoconfig, session, 'lambda', region)
+def collect_inputs():
+    try:
+        selected_region = input("Region (optional): ").strip()
+    except RuntimeError:
+        selected_region = ""
+    return {"region": selected_region}
 
-    return client.create_aws_client()
 
-def get_optional_regions():
-    optional_region = region_parser.Region()
+def parse_functions(resp):
+    items = []
+    for fn in resp.get("Functions", []):
+        items.append(
+            {
+                "function_name": fn.get("FunctionName"),
+                "function_arn": fn.get("FunctionArn"),
+                "runtime": fn.get("Runtime"),
+                "handler": fn.get("Handler"),
+                "role": fn.get("Role"),
+                "timeout": fn.get("Timeout"),
+                "memory_size": fn.get("MemorySize"),
+                "last_modified": fn.get("LastModified"),
+                "code_size": fn.get("CodeSize"),
+                "package_type": fn.get("PackageType"),
+                "state": fn.get("State"),
+            }
+        )
+    return items
 
-    return optional_region
-
-def get_lambda_function_list(botosession, session, region):
-    lambda_client = create_lambda_client(botosession, session, region)
-    response = lambda_client.list_functions()
-
-    return response
 
 def main(botoconfig, session):
-    print(Fore.YELLOW + "\n================================================================================================" + Style.RESET_ALL)
-    print("[+] Starting Lambda Function Enumeration module...")
-    print("[+] Select region to retrieve functions...")
-    
-    lambda_function_list = []
+    inputs = collect_inputs()
+    selected_region = inputs.get("region", "").strip()
+    regions = [selected_region] if selected_region else region_parser.get_regions()
+    results = {"regions": {}, "errors": []}
+    total = 0
 
-    region_option = get_optional_regions()
+    for region in regions:
+        lamb = lambda_handler.Lambda(botoconfig, session, region)
+        response = lamb.list_functions()
+        if not response:
+            results["regions"][region] = []
+            results["errors"].append(
+                {
+                    "region": region,
+                    "error": "Failed to list Lambda functions in this region.",
+                }
+            )
+            continue
 
-    if region_option:
-        for region in region_option:
-            print("[+] Enumerating lambda functions for "+Fore.YELLOW+"{}".format(region)+Style.RESET_ALL+"....")
-            try:
-                lambda_functions = get_lambda_function_list(botoconfig, session, region)
-                if lambda_functions['Functions'] == []:
-                    pass
-                else:
-                    for function in lambda_functions['Functions']:
-                        print("[+] Function Arn: "+Fore.GREEN+"{}".format(function['FunctionArn'])+Style.RESET_ALL)
-                        lambda_function_list.append(function)
-            except:
-                pass
-    
-    return lambda_function_list 
+        region_functions = parse_functions(response)
+        while response.get("NextMarker"):
+            response = lamb.list_functions(response.get("NextMarker"))
+            if not response:
+                break
+            region_functions.extend(parse_functions(response))
+
+        results["regions"][region] = region_functions
+        total += len(region_functions)
+
+    results["total_functions"] = total
+    return utils.module_result(data=results, errors=[])
