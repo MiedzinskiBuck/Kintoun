@@ -196,6 +196,18 @@ details summary {
 .status.running { background: #1e3a8a; color: #dbeafe; }
 .status.completed { background: #14532d; color: #dcfce7; }
 .status.failed { background: #7f1d1d; color: #fee2e2; }
+.status.timed_out { background: #78350f; color: #fef3c7; }
+.status.canceled { background: #334155; color: #e2e8f0; }
+.severity {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.severity-high { background: #7f1d1d; color: #fee2e2; }
+.severity-medium { background: #78350f; color: #fef3c7; }
+.severity-low { background: #1e3a8a; color: #dbeafe; }
+.severity-info { background: #14532d; color: #dcfce7; }
 
 pre {
   background: #0b1220;

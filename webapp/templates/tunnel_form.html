@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>{% if tunnel %}Edit Tunnel{% else %}New Tunnel{% endif %}</h1>
+  <form method="post" class="form-grid">
+    <label>Name
+      <input type="text" name="name" value="{{ tunnel.name if tunnel else '' }}" required>
+    </label>
+    <label>Scheme
+      <select name="scheme" required>
+        <option value="http" {% if tunnel and tunnel.scheme == 'http' %}selected{% endif %}>http</option>
+        <option value="https" {% if tunnel and tunnel.scheme == 'https' %}selected{% endif %}>https</option>
+        <option value="socks5" {% if tunnel and tunnel.scheme == 'socks5' %}selected{% endif %}>socks5</option>
+        <option value="socks5h" {% if tunnel and tunnel.scheme == 'socks5h' %}selected{% endif %}>socks5h</option>
+      </select>
+    </label>
+    <label>Host
+      <input type="text" name="host" value="{{ tunnel.host if tunnel else '127.0.0.1' }}" required>
+    </label>
+    <label>Port
+      <input type="number" name="port" min="1" max="65535" value="{{ tunnel.port if tunnel else 8080 }}" required>
+    </label>
+    <label>
+      <input type="checkbox" name="enabled" {% if not tunnel or tunnel.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <button type="submit">Save Tunnel</button>
+  </form>
+</section>
+{% endblock %}

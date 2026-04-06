@@ -32,6 +32,7 @@
         <p><strong>Description:</strong> <span id="module_info_description">Select a module to view details.</span></p>
         <p><strong>Requires Region:</strong> <span id="module_info_region">-</span></p>
         <p><strong>Risk Level:</strong> <span id="module_info_risk">-</span></p>
+        <p><strong>Execution Limits:</strong> <span id="module_info_limits">-</span></p>
         <p><strong>Dependencies:</strong> <span id="module_info_dependencies">None</span></p>
         <p><strong>Inputs:</strong></p>
         <ul id="module_info_inputs" class="module-input-list">
@@ -43,7 +44,30 @@
         <select id="credential_id" name="credential_id" required>
           <option value="">Select credential</option>
           {% for c in credentials %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
+          <option value="{{ c.id }}" {% if active_credential_id and c.id == active_credential_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="hint">
+        {% if active_credential_id %}
+        Active credential context: <strong>{{ active_credential_name }}</strong>
+        {% if active_credential_source == "assume_role" and active_credential_source_run_id %}
+        (set by assume-role run #{{ active_credential_source_run_id }})
+        {% else %}
+        (manual selection)
+        {% endif %}
+        {% else %}
+        Active credential context: <strong>none</strong> (select a credential and queue a run to set one).
+        {% endif %}
+      </p>
+
+      <label>Tunnel (optional)
+        <select name="tunnel_id">
+          <option value="">Direct (no tunnel)</option>
+          {% for t in tunnels %}
+          {% if t.enabled %}
+          <option value="{{ t.id }}">{{ t.name }} ({{ t.scheme }}://{{ t.host }}:{{ t.port }})</option>
+          {% endif %}
           {% endfor %}
         </select>
       </label>
@@ -52,7 +76,7 @@
         <select id="depends_on_run_ids" name="depends_on_run_ids" multiple size="6">
           <option value="">Select a dependency run</option>
           {% for dr in dependency_runs %}
-          <option value="{{ dr.id }}" data-credential-id="{{ dr.credential_id }}" data-module-path="{{ dr.module_category }}/{{ dr.module_name }}">#{{ dr.id }} - {{ dr.module_category }}/{{ dr.module_name }} - {{ dr.credential_name }} - {{ dr.created_at }}</option>
+          <option value="{{ dr.id }}" data-credential-id="{{ dr.credential_id }}" data-module-path="{{ dr.module_category }}/{{ dr.module_name }}">#{{ dr.id }} - {{ dr.operator_username }} - {{ dr.module_category }}/{{ dr.module_name }} - {{ dr.credential_name }} - {{ dr.created_at }}</option>
           {% endfor %}
         </select>
       </label>
@@ -70,7 +94,11 @@
       <label>Module Inputs (one value per line)
         <textarea name="input_values" rows="6" placeholder="Only required for interactive modules."></textarea>
       </label>
+      {% if can_queue %}
       <button type="submit">Queue Run</button>
+      {% else %}
+      <p class="hint">Your role is read-only and cannot queue runs.</p>
+      {% endif %}
     </form>
   </article>
 
@@ -79,9 +107,13 @@
       <h2>Recent Runs</h2>
       <div class="row-actions">
         <a class="button" href="{{ url_for('dashboard') }}">Refresh</a>
+        <a class="button" href="{{ url_for('engagement_report_json') }}">Export JSON</a>
+        <a class="button" href="{{ url_for('engagement_report_txt') }}">Export TXT</a>
+        {% if role == 'admin' %}
         <form method="post" action="{{ url_for('runs_clear') }}" onsubmit="return confirm('Delete all past runs and compact the database? This cannot be undone.');">
           <button type="submit" class="danger tiny">Clear Runs</button>
         </form>
+        {% endif %}
       </div>
     </div>
     <p class="hint">Tip: double-click any run row to open full details.</p>
@@ -90,8 +122,10 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>Operator</th>
             <th>Module</th>
             <th>Credential</th>
+            <th>Tunnel</th>
             <th>Status</th>
             <th>Error Preview</th>
             <th>Created</th>
@@ -102,8 +136,10 @@
           {% for run in runs %}
           <tr class="clickable-row" data-href="{{ url_for('run_detail', run_id=run.id) }}" ondblclick="window.location=this.dataset.href;">
             <td><a href="{{ url_for('run_detail', run_id=run.id) }}">#{{ run.id }}</a></td>
+            <td>{{ run.operator_username }}</td>
             <td><a href="{{ url_for('run_detail', run_id=run.id) }}">{{ run.module_category }}/{{ run.module_name }}</a></td>
             <td>{{ run.credential_name }}</td>
+            <td>{{ run.tunnel_label or '-' }}</td>
             <td><span class="status {{ run.status }}">{{ run.status }}</span></td>
             <td class="error-cell">
               {% if run.error_text %}
@@ -117,15 +153,96 @@
             <td>{{ run.created_at }}</td>
             <td class="run-actions">
               <a class="inline-link" href="{{ url_for('run_detail', run_id=run.id) }}">Open</a>
+              {% if can_queue and run.status in ['queued', 'running'] %}
+              <form method="post" action="{{ url_for('run_cancel', run_id=run.id) }}" onsubmit="return confirm('Cancel run #{{ run.id }}?');" onclick="event.stopPropagation();">
+                <button type="submit" class="tiny">Cancel</button>
+              </form>
+              {% endif %}
+              {% if can_queue %}
               <form method="post" action="{{ url_for('run_delete', run_id=run.id) }}" onsubmit="return confirm('Delete run #{{ run.id }}?');" onclick="event.stopPropagation();">
                 <button type="submit" class="danger tiny">Delete</button>
               </form>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    <section class="module-widget console-widget">
+      <h3>Generate Console</h3>
+      <p class="hint">Creates a temporary AWS console federation link using the selected credential.</p>
+      {% if can_queue %}
+      <form id="console_generate_form" method="post" action="{{ url_for('console_generate') }}">
+        <input id="console_credential_id" type="hidden" name="credential_id" value="">
+        <button type="submit">Generate Console Link</button>
+      </form>
+      {% else %}
+      <p class="hint">Your role is read-only and cannot generate console links.</p>
+      {% endif %}
+      {% if generated_console_link %}
+      <p><strong>Identity:</strong> <code>{{ generated_console_identity or 'unknown' }}</code></p>
+      <p><a class="inline-link" href="{{ generated_console_link }}" target="_blank" rel="noopener noreferrer">Open AWS Console</a></p>
+      <pre>{{ generated_console_link }}</pre>
+      {% endif %}
+    </section>
+    <h3>Recent Findings</h3>
+    {% if recent_findings %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Severity</th>
+            <th>Title</th>
+            <th>Resource</th>
+            <th>Run</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in recent_findings %}
+          <tr>
+            <td>#{{ f.id }}</td>
+            <td><span class="severity severity-{{ f.severity }}">{{ f.severity|upper }}</span></td>
+            <td>{{ f.title }}</td>
+            <td>{{ f.resource_type or '-' }} / {{ f.resource_id or '-' }}</td>
+            <td><a class="inline-link" href="{{ url_for('run_detail', run_id=f.run_id) }}">#{{ f.run_id }}</a></td>
+            <td>{{ f.created_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="hint">No findings generated yet.</p>
+    {% endif %}
+
+    <h3>Correlated Signals</h3>
+    {% if correlated_signals %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Resource</th>
+            <th>Categories</th>
+            <th>Findings</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in correlated_signals %}
+          <tr>
+            <td>{{ c.resource_type or '-' }} / {{ c.resource_id or '-' }}</td>
+            <td>{{ c.categories_count }}</td>
+            <td>{{ c.findings_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="hint">No cross-category correlations yet.</p>
+    {% endif %}
   </article>
 </section>
 <script>
@@ -136,6 +253,7 @@
     const moduleDescription = document.getElementById("module_info_description");
     const moduleRegion = document.getElementById("module_info_region");
     const moduleRisk = document.getElementById("module_info_risk");
+    const moduleLimits = document.getElementById("module_info_limits");
     const moduleDependencies = document.getElementById("module_info_dependencies");
     const moduleInputs = document.getElementById("module_info_inputs");
     const runForm = document.getElementById("run_form");
@@ -143,6 +261,8 @@
     const credentialSelect = document.getElementById("credential_id");
     const dependsOnLabel = document.getElementById("depends_on_label");
     const dependsOnSelect = document.getElementById("depends_on_run_ids");
+    const consoleForm = document.getElementById("console_generate_form");
+    const consoleCredentialInput = document.getElementById("console_credential_id");
     const moduleCatalog = {{ modules | tojson }};
     if (!categoryFilter || !moduleSelect) return;
 
@@ -160,6 +280,7 @@
         moduleDescription.textContent = "Select a module to view details.";
         moduleRegion.textContent = "-";
         moduleRisk.textContent = "-";
+        moduleLimits.textContent = "-";
         moduleDependencies.textContent = "None";
         moduleInputs.innerHTML = "<li>-</li>";
         return;
@@ -169,6 +290,10 @@
       moduleDescription.textContent = meta.description || "No description available.";
       moduleRegion.textContent = meta.requires_region ? "Yes" : "No";
       moduleRisk.textContent = (meta.risk_level || "low").toUpperCase();
+      const limits = meta.execution_limits || {};
+      const timeoutSeconds = limits.timeout_seconds || "-";
+      const maxApiCalls = limits.max_api_calls || "-";
+      moduleLimits.textContent = `timeout=${timeoutSeconds}s, max_calls=${maxApiCalls}`;
       const deps = Array.isArray(meta.dependencies) ? meta.dependencies : [];
       moduleDependencies.textContent = deps.length ? deps.join(", ") : "None";
 
@@ -253,6 +378,14 @@
     categoryFilter.addEventListener("change", filterModules);
     if (credentialSelect) {
       credentialSelect.addEventListener("change", filterDependencyRuns);
+      if (consoleCredentialInput) {
+        consoleCredentialInput.value = credentialSelect.value || "";
+      }
+      credentialSelect.addEventListener("change", () => {
+        if (consoleCredentialInput) {
+          consoleCredentialInput.value = credentialSelect.value || "";
+        }
+      });
     }
     moduleSelect.addEventListener("change", () => {
       renderModuleInfo(moduleSelect.value);
@@ -311,6 +444,17 @@
         if (needsDependency && !credentialSelect.value) {
           event.preventDefault();
           alert("Select a credential before queueing the run.");
+        }
+      });
+    }
+    if (consoleForm) {
+      consoleForm.addEventListener("submit", (event) => {
+        if (consoleCredentialInput) {
+          consoleCredentialInput.value = (credentialSelect && credentialSelect.value) ? credentialSelect.value : "";
+        }
+        if (!consoleCredentialInput || !consoleCredentialInput.value) {
+          event.preventDefault();
+          alert("Select a credential before generating console link.");
         }
       });
     }

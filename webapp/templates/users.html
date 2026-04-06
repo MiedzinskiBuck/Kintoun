@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="row">
+    <h1>User Management</h1>
+    <div class="row-actions">
+      <a class="button" href="{{ url_for('admin_credentials') }}">Credential Ownership</a>
+      <a class="button" href="{{ url_for('users_new') }}">Add User</a>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Runs</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.role }}</td>
+        <td>{{ u.runs_count }}</td>
+        <td>{{ u.created_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('users_edit', user_id=u.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('users_delete', user_id=u.id) }}" onsubmit="return confirm('Delete user {{ u.username }}?');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

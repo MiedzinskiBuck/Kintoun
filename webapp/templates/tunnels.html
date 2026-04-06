@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="row">
+    <h1>Tunnel Profiles</h1>
+    <a class="button" href="{{ url_for('tunnels_new') }}">Add Tunnel</a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Scheme</th>
+        <th>Host</th>
+        <th>Port</th>
+        <th>Enabled</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tunnels %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td>{{ t.scheme }}</td>
+        <td>{{ t.host }}</td>
+        <td>{{ t.port }}</td>
+        <td>{{ 'Yes' if t.enabled else 'No' }}</td>
+        <td>{{ t.updated_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('tunnels_edit', tunnel_id=t.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('tunnels_delete', tunnel_id=t.id) }}" onsubmit="return confirm('Delete tunnel {{ t.name }}?');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

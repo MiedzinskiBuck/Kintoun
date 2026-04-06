@@ -14,6 +14,10 @@ MODULE_METADATA = {
     ],
     "output_type": "json",
     "risk_level": "medium",
+    "execution_limits": {
+        "timeout_seconds": 7200,
+        "max_api_calls": 20000,
+    },
 }
 
 import botocore
