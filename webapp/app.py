@@ -7,6 +7,8 @@ import importlib
 import inspect
 import json
 import os
+import select
+import socket
 import sqlite3
 import threading
 import time
@@ -154,6 +156,37 @@ def create_app():
                 UNIQUE(user_id, name)
             );
 
+            CREATE TABLE IF NOT EXISTS user_network_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                proxy_url TEXT,
+                ca_bundle_path TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, name)
+            );
+
+            CREATE TABLE IF NOT EXISTS user_tunnel_chains (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, name)
+            );
+
+            CREATE TABLE IF NOT EXISTS user_tunnel_chain_hops (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chain_id INTEGER NOT NULL,
+                hop_order INTEGER NOT NULL,
+                tunnel_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(chain_id, hop_order)
+            );
+
             CREATE TABLE IF NOT EXISTS runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -163,6 +196,10 @@ def create_app():
                 tunnel_id INTEGER,
                 tunnel_label TEXT,
                 tunnel_url TEXT,
+                network_profile_id INTEGER,
+                network_profile_label TEXT,
+                network_proxy_url TEXT,
+                network_ca_bundle_path TEXT,
                 depends_on_run_id INTEGER,
                 cancel_requested INTEGER NOT NULL DEFAULT 0,
                 canceled_at TEXT,
@@ -242,6 +279,16 @@ def create_app():
             db.execute("ALTER TABLE runs ADD COLUMN tunnel_label TEXT")
         if "tunnel_url" not in run_columns:
             db.execute("ALTER TABLE runs ADD COLUMN tunnel_url TEXT")
+        if "network_profile_id" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN network_profile_id INTEGER")
+        if "network_profile_label" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN network_profile_label TEXT")
+        if "network_proxy_url" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN network_proxy_url TEXT")
+        if "network_ca_bundle_path" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN network_ca_bundle_path TEXT")
+        if "tunnel_chain_id" not in run_columns:
+            db.execute("ALTER TABLE runs ADD COLUMN tunnel_chain_id INTEGER")
         db.execute(
             """
             INSERT OR IGNORE INTO run_dependencies (run_id, depends_on_run_id, alias, created_at)
@@ -255,6 +302,9 @@ def create_app():
         db.execute("CREATE INDEX IF NOT EXISTS idx_user_credentials_user ON user_credentials(user_id, credential_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_user_active_credentials_credential ON user_active_credentials(credential_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_user_tunnels_user ON user_tunnels(user_id, enabled)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_user_network_profiles_user ON user_network_profiles(user_id, enabled)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_user_tunnel_chains_user ON user_tunnel_chains(user_id, enabled)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_user_tunnel_chain_hops_chain ON user_tunnel_chain_hops(chain_id, hop_order)")
         db.commit()
 
     def ensure_admin():
@@ -434,6 +484,70 @@ def create_app():
             (int(user_id),),
         ).fetchall()
 
+    def _list_user_tunnel_chains(db, user_id):
+        return db.execute(
+            """
+            SELECT
+                c.id,
+                c.user_id,
+                c.name,
+                c.enabled,
+                c.created_at,
+                c.updated_at,
+                COUNT(h.id) AS hop_count,
+                GROUP_CONCAT(t.name, ' -> ') AS hop_names
+            FROM user_tunnel_chains c
+            LEFT JOIN user_tunnel_chain_hops h ON h.chain_id = c.id
+            LEFT JOIN user_tunnels t ON t.id = h.tunnel_id
+            WHERE c.user_id = ?
+            GROUP BY c.id, c.user_id, c.name, c.enabled, c.created_at, c.updated_at
+            ORDER BY c.name
+            """,
+            (int(user_id),),
+        ).fetchall()
+
+    def _list_user_network_profiles(db, user_id):
+        return db.execute(
+            """
+            SELECT id, user_id, name, proxy_url, ca_bundle_path, enabled, created_at, updated_at
+            FROM user_network_profiles
+            WHERE user_id = ?
+            ORDER BY name
+            """,
+            (int(user_id),),
+        ).fetchall()
+
+    def _list_chain_hops(db, user_id, chain_id):
+        return db.execute(
+            """
+            SELECT
+                h.hop_order,
+                t.id AS tunnel_id,
+                t.name,
+                t.scheme,
+                t.host,
+                t.port,
+                t.enabled
+            FROM user_tunnel_chain_hops h
+            JOIN user_tunnel_chains c ON c.id = h.chain_id
+            JOIN user_tunnels t ON t.id = h.tunnel_id
+            WHERE c.id = ? AND c.user_id = ?
+            ORDER BY h.hop_order ASC
+            """,
+            (int(chain_id), int(user_id)),
+        ).fetchall()
+
+    def _normalize_proxy_url(raw_url):
+        value = (raw_url or "").strip()
+        if not value:
+            return ""
+        parsed = urllib.parse.urlparse(value)
+        if parsed.scheme not in ("http", "https", "socks5", "socks5h"):
+            return ""
+        if not parsed.hostname or not parsed.port:
+            return ""
+        return value
+
     def _build_tunnel_url(scheme, host, port):
         normalized_scheme = (scheme or "").strip().lower()
         normalized_host = (host or "").strip()
@@ -448,6 +562,200 @@ def create_app():
         if normalized_port <= 0 or normalized_port > 65535:
             return None
         return f"{normalized_scheme}://{normalized_host}:{normalized_port}"
+
+    def _recv_until(sock, marker, limit=65536):
+        data = b""
+        while marker not in data:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+            if len(data) > limit:
+                raise RuntimeError("Proxy response exceeded allowed size.")
+        return data
+
+    def _http_connect(sock, host, port):
+        request_data = (
+            f"CONNECT {host}:{int(port)} HTTP/1.1\r\n"
+            f"Host: {host}:{int(port)}\r\n"
+            "Proxy-Connection: Keep-Alive\r\n"
+            "\r\n"
+        ).encode("utf-8")
+        sock.sendall(request_data)
+        response = _recv_until(sock, b"\r\n\r\n")
+        first_line = response.split(b"\r\n", 1)[0].decode("utf-8", errors="replace")
+        if " 200 " not in first_line:
+            raise RuntimeError(f"HTTP proxy CONNECT failed: {first_line}")
+
+    def _socks5_connect(sock, host, port, resolve_remote=True):
+        sock.sendall(b"\x05\x01\x00")
+        greeting = sock.recv(2)
+        if len(greeting) < 2 or greeting[0] != 5 or greeting[1] != 0:
+            raise RuntimeError("SOCKS5 proxy does not support no-auth mode.")
+
+        target_host = host
+        atyp = None
+        addr_payload = b""
+        if resolve_remote:
+            encoded = target_host.encode("idna")
+            if len(encoded) > 255:
+                raise RuntimeError("SOCKS5 hostname too long.")
+            atyp = b"\x03"
+            addr_payload = bytes([len(encoded)]) + encoded
+        else:
+            try:
+                ip_bytes = socket.inet_aton(target_host)
+                atyp = b"\x01"
+                addr_payload = ip_bytes
+            except OSError:
+                resolved = socket.gethostbyname(target_host)
+                ip_bytes = socket.inet_aton(resolved)
+                atyp = b"\x01"
+                addr_payload = ip_bytes
+
+        port_payload = int(port).to_bytes(2, "big")
+        request_data = b"\x05\x01\x00" + atyp + addr_payload + port_payload
+        sock.sendall(request_data)
+        header = sock.recv(4)
+        if len(header) < 4 or header[0] != 5:
+            raise RuntimeError("Invalid SOCKS5 response header.")
+        if header[1] != 0:
+            raise RuntimeError(f"SOCKS5 CONNECT failed with status {header[1]}.")
+        addr_type = header[3]
+        if addr_type == 1:
+            _ = sock.recv(4)
+        elif addr_type == 3:
+            length_raw = sock.recv(1)
+            if not length_raw:
+                raise RuntimeError("Invalid SOCKS5 domain response length.")
+            _ = sock.recv(length_raw[0])
+        elif addr_type == 4:
+            _ = sock.recv(16)
+        _ = sock.recv(2)
+
+    def _connect_via_chain(hops, dest_host, dest_port, timeout=20):
+        if not hops:
+            raise RuntimeError("Tunnel chain has no hops.")
+        first = hops[0]
+        proxy_sock = socket.create_connection((first["host"], int(first["port"])), timeout=timeout)
+        proxy_sock.settimeout(timeout)
+        try:
+            for idx, hop in enumerate(hops):
+                scheme = (hop.get("scheme") or "").lower()
+                if idx + 1 < len(hops):
+                    next_hop = hops[idx + 1]
+                    target_host = next_hop["host"]
+                    target_port = int(next_hop["port"])
+                else:
+                    target_host = dest_host
+                    target_port = int(dest_port)
+                if scheme in ("http", "https"):
+                    _http_connect(proxy_sock, target_host, target_port)
+                elif scheme in ("socks5", "socks5h"):
+                    _socks5_connect(proxy_sock, target_host, target_port, resolve_remote=(scheme == "socks5h"))
+                else:
+                    raise RuntimeError(f"Unsupported proxy scheme in chain: {scheme}")
+            proxy_sock.settimeout(None)
+            return proxy_sock
+        except Exception:
+            try:
+                proxy_sock.close()
+            except Exception:
+                pass
+            raise
+
+    class ProxyChainRelay:
+        def __init__(self, hops):
+            self.hops = hops
+            self._listener = None
+            self._accept_thread = None
+            self._stop = threading.Event()
+            self._client_threads = set()
+            self.bind_host = "127.0.0.1"
+            self.bind_port = None
+
+        def start(self):
+            self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._listener.bind((self.bind_host, 0))
+            self._listener.listen(16)
+            self.bind_port = int(self._listener.getsockname()[1])
+            self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
+            self._accept_thread.start()
+
+        def _accept_loop(self):
+            while not self._stop.is_set():
+                try:
+                    client, _addr = self._listener.accept()
+                except OSError:
+                    if self._stop.is_set():
+                        return
+                    continue
+                th = threading.Thread(target=self._handle_client, args=(client,), daemon=True)
+                self._client_threads.add(th)
+                th.start()
+
+        def _handle_client(self, client):
+            upstream = None
+            try:
+                request_blob = _recv_until(client, b"\r\n\r\n")
+                request_head = request_blob.decode("utf-8", errors="replace").split("\r\n")
+                if not request_head or not request_head[0].startswith("CONNECT "):
+                    client.sendall(b"HTTP/1.1 405 Method Not Allowed\r\n\r\n")
+                    return
+                parts = request_head[0].split(" ")
+                if len(parts) < 2 or ":" not in parts[1]:
+                    client.sendall(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+                    return
+                dest_host, dest_port_str = parts[1].rsplit(":", 1)
+                dest_port = int(dest_port_str)
+                upstream = _connect_via_chain(self.hops, dest_host, dest_port)
+                client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                self._bridge(client, upstream)
+            except Exception:
+                try:
+                    client.sendall(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+                except Exception:
+                    pass
+            finally:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                if upstream:
+                    try:
+                        upstream.close()
+                    except Exception:
+                        pass
+
+        def _bridge(self, a, b):
+            sockets = [a, b]
+            while not self._stop.is_set():
+                readable, _, _ = select.select(sockets, [], [], 1.0)
+                if not readable:
+                    continue
+                for src in readable:
+                    dst = b if src is a else a
+                    data = src.recv(16384)
+                    if not data:
+                        return
+                    dst.sendall(data)
+
+        def stop(self):
+            self._stop.set()
+            if self._listener:
+                try:
+                    self._listener.close()
+                except Exception:
+                    pass
+            if self._accept_thread and self._accept_thread.is_alive():
+                self._accept_thread.join(timeout=1.5)
+
+        @property
+        def local_proxy_url(self):
+            if not self.bind_port:
+                return None
+            return f"http://{self.bind_host}:{self.bind_port}"
 
     def _resolve_credential_session(db, credential_id):
         row = db.execute(
@@ -1080,14 +1388,41 @@ def create_app():
                     "aws_session_token": decrypt(run["session_token_enc"]),
                 }
                 session_obj = credential_handler.Credential(credentials).session
-                tunnel_url = (run["tunnel_url"] or "").strip() if "tunnel_url" in run.keys() else ""
-                if tunnel_url:
+                chain_relay = None
+                tunnel_raw = (run["tunnel_url"] or "").strip() if "tunnel_url" in run.keys() else ""
+                network_proxy_raw = (run["network_proxy_url"] or "").strip() if "network_proxy_url" in run.keys() else ""
+                verify_path = (run["network_ca_bundle_path"] or "").strip() if "network_ca_bundle_path" in run.keys() else ""
+                effective_proxy_url = None
+                if tunnel_raw.startswith("chain_json:"):
+                    try:
+                        hops = json.loads(tunnel_raw[len("chain_json:"):])
+                    except Exception:
+                        hops = []
+                    if not isinstance(hops, list) or not hops:
+                        raise RuntimeError("Invalid tunnel chain configuration for run.")
+                    chain_relay = ProxyChainRelay(hops)
+                    chain_relay.start()
+                    effective_proxy_url = chain_relay.local_proxy_url
+                elif tunnel_raw:
+                    effective_proxy_url = tunnel_raw
+                elif network_proxy_raw:
+                    effective_proxy_url = network_proxy_raw
+
+                if effective_proxy_url:
                     botoconfig = Config(
                         user_agent="kintoun-web",
-                        proxies={"http": tunnel_url, "https": tunnel_url},
+                        proxies={"http": effective_proxy_url, "https": effective_proxy_url},
                     )
                 else:
                     botoconfig = Config(user_agent="kintoun-web")
+
+                original_session_client = session_obj.client
+                if verify_path:
+                    def _client_with_verify(*args, **kwargs):
+                        if "verify" not in kwargs:
+                            kwargs["verify"] = verify_path
+                        return original_session_client(*args, **kwargs)
+                    session_obj.client = _client_with_verify
 
                 module_path = f"modules.{run['module_category']}.{run['module_name']}"
                 module = importlib.import_module(module_path)
@@ -1250,6 +1585,11 @@ def create_app():
                 guard_state.state = None
                 builtins.input = original_input
                 builtins.print = original_print
+                if "chain_relay" in locals() and chain_relay:
+                    try:
+                        chain_relay.stop()
+                    except Exception:
+                        pass
 
             try:
                 result_obj = _parse_json_or_empty(result_json)
@@ -1407,6 +1747,8 @@ def create_app():
         modules = get_modules_catalog()
         categories = sorted({m["category"] for m in modules})
         tunnels = _list_user_tunnels(db, user_id) if role == "operator" else []
+        tunnel_chains = _list_user_tunnel_chains(db, user_id) if role == "operator" else []
+        network_profiles = _list_user_network_profiles(db, user_id) if role == "operator" else []
         if _can_view_all_runs(role):
             dependency_runs = db.execute(
                 """
@@ -1523,6 +1865,8 @@ def create_app():
             runs=runs,
             regions=regions,
             tunnels=tunnels,
+            tunnel_chains=tunnel_chains,
+            network_profiles=network_profiles,
             dependency_runs=dependency_runs,
             recent_findings=recent_findings,
             correlated_signals=correlated_signals,
@@ -1688,8 +2032,11 @@ def create_app():
     @role_required("operator")
     def tunnels_list():
         db = get_db()
-        rows = _list_user_tunnels(db, int(session["user_id"]))
-        return render_template("tunnels.html", tunnels=rows)
+        user_id = int(session["user_id"])
+        rows = _list_user_tunnels(db, user_id)
+        chains = _list_user_tunnel_chains(db, user_id)
+        network_profiles = _list_user_network_profiles(db, user_id)
+        return render_template("tunnels.html", tunnels=rows, chains=chains, network_profiles=network_profiles)
 
     @app.route("/tunnels/new", methods=["GET", "POST"])
     @role_required("operator")
@@ -1779,12 +2126,296 @@ def create_app():
     @role_required("operator")
     def tunnels_delete(tunnel_id):
         db = get_db()
+        chain_refs = db.execute(
+            "SELECT COUNT(1) AS c FROM user_tunnel_chain_hops WHERE tunnel_id = ?",
+            (int(tunnel_id),),
+        ).fetchone()
+        if chain_refs and int(chain_refs["c"] or 0) > 0:
+            flash("Cannot delete tunnel because it is used by one or more tunnel chains.", "error")
+            return redirect(url_for("tunnels_list"))
         db.execute(
             "DELETE FROM user_tunnels WHERE id = ? AND user_id = ?",
             (tunnel_id, int(session["user_id"])),
         )
         db.commit()
         flash("Tunnel deleted.", "success")
+        return redirect(url_for("tunnels_list"))
+
+    @app.route("/network-profiles/new", methods=["GET", "POST"])
+    @role_required("operator")
+    def network_profiles_new():
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            proxy_url_raw = request.form.get("proxy_url", "").strip()
+            ca_bundle_path = request.form.get("ca_bundle_path", "").strip()
+            enabled = 1 if request.form.get("enabled") == "on" else 0
+            if not name:
+                flash("Profile name is required.", "error")
+                return render_template("network_profile_form.html", profile=None)
+            proxy_url = _normalize_proxy_url(proxy_url_raw)
+            if proxy_url_raw and not proxy_url:
+                flash("Invalid proxy URL. Use http(s)/socks5(s)://user:pass@host:port format.", "error")
+                return render_template("network_profile_form.html", profile=None)
+            db = get_db()
+            try:
+                db.execute(
+                    """
+                    INSERT INTO user_network_profiles
+                    (user_id, name, proxy_url, ca_bundle_path, enabled, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        int(session["user_id"]),
+                        name,
+                        proxy_url or None,
+                        ca_bundle_path or None,
+                        enabled,
+                        _now(),
+                        _now(),
+                    ),
+                )
+                db.commit()
+                flash("Network profile saved.", "success")
+                return redirect(url_for("tunnels_list"))
+            except sqlite3.IntegrityError:
+                flash("Network profile name already exists for this user.", "error")
+        return render_template("network_profile_form.html", profile=None)
+
+    @app.route("/network-profiles/<int:profile_id>/edit", methods=["GET", "POST"])
+    @role_required("operator")
+    def network_profiles_edit(profile_id):
+        db = get_db()
+        row = db.execute(
+            "SELECT * FROM user_network_profiles WHERE id = ? AND user_id = ?",
+            (profile_id, int(session["user_id"])),
+        ).fetchone()
+        if not row:
+            flash("Network profile not found.", "error")
+            return redirect(url_for("tunnels_list"))
+
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            proxy_url_raw = request.form.get("proxy_url", "").strip()
+            ca_bundle_path = request.form.get("ca_bundle_path", "").strip()
+            enabled = 1 if request.form.get("enabled") == "on" else 0
+            if not name:
+                flash("Profile name is required.", "error")
+                return redirect(url_for("network_profiles_edit", profile_id=profile_id))
+            proxy_url = _normalize_proxy_url(proxy_url_raw)
+            if proxy_url_raw and not proxy_url:
+                flash("Invalid proxy URL. Use http(s)/socks5(s)://user:pass@host:port format.", "error")
+                return redirect(url_for("network_profiles_edit", profile_id=profile_id))
+            try:
+                db.execute(
+                    """
+                    UPDATE user_network_profiles
+                    SET name = ?, proxy_url = ?, ca_bundle_path = ?, enabled = ?, updated_at = ?
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (
+                        name,
+                        proxy_url or None,
+                        ca_bundle_path or None,
+                        enabled,
+                        _now(),
+                        profile_id,
+                        int(session["user_id"]),
+                    ),
+                )
+                db.commit()
+                flash("Network profile updated.", "success")
+                return redirect(url_for("tunnels_list"))
+            except sqlite3.IntegrityError:
+                flash("Network profile name already exists for this user.", "error")
+                return redirect(url_for("network_profiles_edit", profile_id=profile_id))
+
+        profile = {
+            "id": row["id"],
+            "name": row["name"],
+            "proxy_url": row["proxy_url"] or "",
+            "ca_bundle_path": row["ca_bundle_path"] or "",
+            "enabled": bool(row["enabled"]),
+        }
+        return render_template("network_profile_form.html", profile=profile)
+
+    @app.route("/network-profiles/<int:profile_id>/delete", methods=["POST"])
+    @role_required("operator")
+    def network_profiles_delete(profile_id):
+        db = get_db()
+        db.execute(
+            """
+            UPDATE runs
+            SET network_profile_id = NULL, network_profile_label = NULL, network_proxy_url = NULL, network_ca_bundle_path = NULL
+            WHERE user_id = ? AND status = 'queued' AND network_profile_id = ?
+            """,
+            (int(session["user_id"]), int(profile_id)),
+        )
+        db.execute(
+            "DELETE FROM user_network_profiles WHERE id = ? AND user_id = ?",
+            (profile_id, int(session["user_id"])),
+        )
+        db.commit()
+        flash("Network profile deleted.", "success")
+        return redirect(url_for("tunnels_list"))
+
+    @app.route("/tunnel-chains/new", methods=["GET", "POST"])
+    @role_required("operator")
+    def tunnel_chains_new():
+        db = get_db()
+        user_id = int(session["user_id"])
+        tunnels = _list_user_tunnels(db, user_id)
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            enabled = 1 if request.form.get("enabled") == "on" else 0
+            hop_ids_raw = request.form.get("hop_tunnel_ids", "")
+            hop_ids = [line.strip() for line in hop_ids_raw.splitlines() if line.strip()]
+            if not name:
+                flash("Chain name is required.", "error")
+                return render_template("tunnel_chain_form.html", chain=None, tunnels=tunnels)
+            if not hop_ids:
+                flash("At least one hop is required.", "error")
+                return render_template("tunnel_chain_form.html", chain=None, tunnels=tunnels)
+            try:
+                hop_ids = [int(x) for x in hop_ids]
+            except ValueError:
+                flash("Hop IDs must be numeric tunnel IDs.", "error")
+                return render_template("tunnel_chain_form.html", chain=None, tunnels=tunnels)
+            placeholders = ",".join(["?"] * len(hop_ids))
+            rows = db.execute(
+                f"""
+                SELECT id
+                FROM user_tunnels
+                WHERE user_id = ? AND id IN ({placeholders})
+                """,
+                (user_id, *hop_ids),
+            ).fetchall()
+            existing_ids = {int(r["id"]) for r in rows}
+            for hop_id in hop_ids:
+                if hop_id not in existing_ids:
+                    flash(f"Hop tunnel #{hop_id} is not valid for this user.", "error")
+                    return render_template("tunnel_chain_form.html", chain=None, tunnels=tunnels)
+            try:
+                db.execute(
+                    """
+                    INSERT INTO user_tunnel_chains (user_id, name, enabled, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (user_id, name, enabled, _now(), _now()),
+                )
+                chain_id = int(db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+                for idx, hop_id in enumerate(hop_ids, start=1):
+                    db.execute(
+                        """
+                        INSERT INTO user_tunnel_chain_hops (chain_id, hop_order, tunnel_id, created_at)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (chain_id, idx, hop_id, _now()),
+                    )
+                db.commit()
+                flash("Tunnel chain saved.", "success")
+                return redirect(url_for("tunnels_list"))
+            except sqlite3.IntegrityError:
+                flash("Tunnel chain name already exists for this user.", "error")
+        return render_template("tunnel_chain_form.html", chain=None, tunnels=tunnels)
+
+    @app.route("/tunnel-chains/<int:chain_id>/edit", methods=["GET", "POST"])
+    @role_required("operator")
+    def tunnel_chains_edit(chain_id):
+        db = get_db()
+        user_id = int(session["user_id"])
+        chain = db.execute(
+            """
+            SELECT id, user_id, name, enabled
+            FROM user_tunnel_chains
+            WHERE id = ? AND user_id = ?
+            """,
+            (chain_id, user_id),
+        ).fetchone()
+        if not chain:
+            flash("Tunnel chain not found.", "error")
+            return redirect(url_for("tunnels_list"))
+        tunnels = _list_user_tunnels(db, user_id)
+        existing_hops = _list_chain_hops(db, user_id, chain_id)
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            enabled = 1 if request.form.get("enabled") == "on" else 0
+            hop_ids_raw = request.form.get("hop_tunnel_ids", "")
+            hop_ids = [line.strip() for line in hop_ids_raw.splitlines() if line.strip()]
+            if not name:
+                flash("Chain name is required.", "error")
+                return redirect(url_for("tunnel_chains_edit", chain_id=chain_id))
+            if not hop_ids:
+                flash("At least one hop is required.", "error")
+                return redirect(url_for("tunnel_chains_edit", chain_id=chain_id))
+            try:
+                hop_ids = [int(x) for x in hop_ids]
+            except ValueError:
+                flash("Hop IDs must be numeric tunnel IDs.", "error")
+                return redirect(url_for("tunnel_chains_edit", chain_id=chain_id))
+            placeholders = ",".join(["?"] * len(hop_ids))
+            rows = db.execute(
+                f"""
+                SELECT id
+                FROM user_tunnels
+                WHERE user_id = ? AND id IN ({placeholders})
+                """,
+                (user_id, *hop_ids),
+            ).fetchall()
+            existing_ids = {int(r["id"]) for r in rows}
+            for hop_id in hop_ids:
+                if hop_id not in existing_ids:
+                    flash(f"Hop tunnel #{hop_id} is not valid for this user.", "error")
+                    return redirect(url_for("tunnel_chains_edit", chain_id=chain_id))
+            try:
+                db.execute(
+                    """
+                    UPDATE user_tunnel_chains
+                    SET name = ?, enabled = ?, updated_at = ?
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (name, enabled, _now(), chain_id, user_id),
+                )
+                db.execute("DELETE FROM user_tunnel_chain_hops WHERE chain_id = ?", (chain_id,))
+                for idx, hop_id in enumerate(hop_ids, start=1):
+                    db.execute(
+                        """
+                        INSERT INTO user_tunnel_chain_hops (chain_id, hop_order, tunnel_id, created_at)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (chain_id, idx, hop_id, _now()),
+                    )
+                db.commit()
+                flash("Tunnel chain updated.", "success")
+                return redirect(url_for("tunnels_list"))
+            except sqlite3.IntegrityError:
+                flash("Tunnel chain name already exists for this user.", "error")
+                return redirect(url_for("tunnel_chains_edit", chain_id=chain_id))
+
+        chain_obj = {
+            "id": int(chain["id"]),
+            "name": chain["name"],
+            "enabled": bool(chain["enabled"]),
+            "hop_tunnel_ids": "\n".join(str(h["tunnel_id"]) for h in existing_hops),
+        }
+        return render_template("tunnel_chain_form.html", chain=chain_obj, tunnels=tunnels)
+
+    @app.route("/tunnel-chains/<int:chain_id>/delete", methods=["POST"])
+    @role_required("operator")
+    def tunnel_chains_delete(chain_id):
+        db = get_db()
+        user_id = int(session["user_id"])
+        db.execute(
+            """
+            UPDATE runs
+            SET tunnel_chain_id = NULL, tunnel_label = NULL, tunnel_url = NULL
+            WHERE user_id = ? AND status = 'queued' AND tunnel_chain_id = ?
+            """,
+            (user_id, chain_id),
+        )
+        db.execute("DELETE FROM user_tunnel_chain_hops WHERE chain_id = ?", (chain_id,))
+        db.execute("DELETE FROM user_tunnel_chains WHERE id = ? AND user_id = ?", (chain_id, user_id))
+        db.commit()
+        flash("Tunnel chain deleted.", "success")
         return redirect(url_for("tunnels_list"))
 
     @app.route("/users")
@@ -2009,7 +2640,8 @@ def create_app():
     def runs_new():
         module_path = request.form.get("module_path", "").strip()
         credential_id = request.form.get("credential_id", "").strip()
-        selected_tunnel_id = request.form.get("tunnel_id", "").strip()
+        selected_tunnel_value = request.form.get("tunnel_id", "").strip()
+        selected_network_profile_id = request.form.get("network_profile_id", "").strip()
         input_values_text = request.form.get("input_values", "").strip()
         selected_region = request.form.get("selected_region", "").strip()
         depends_on_run_ids = [v.strip() for v in request.form.getlist("depends_on_run_ids") if v.strip()]
@@ -2036,33 +2668,112 @@ def create_app():
             return redirect(url_for("dashboard"))
 
         tunnel_id_value = None
+        tunnel_chain_id_value = None
         tunnel_label = None
         tunnel_url = None
-        if selected_tunnel_id:
+        network_profile_id_value = None
+        network_profile_label = None
+        network_proxy_url = None
+        network_ca_bundle_path = None
+        if selected_tunnel_value:
+            selected_mode = "legacy"
+            selected_id = selected_tunnel_value
+            if ":" in selected_tunnel_value:
+                selected_mode, selected_id = selected_tunnel_value.split(":", 1)
             try:
-                tunnel_id_value = int(selected_tunnel_id)
+                selected_id_value = int(selected_id)
             except ValueError:
                 flash("Invalid tunnel selection.", "error")
                 return redirect(url_for("dashboard"))
-            tunnel_row = db.execute(
+
+            if selected_mode in ("legacy", "t"):
+                tunnel_id_value = selected_id_value
+                tunnel_row = db.execute(
+                    """
+                    SELECT id, name, scheme, host, port, enabled
+                    FROM user_tunnels
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (tunnel_id_value, int(session["user_id"])),
+                ).fetchone()
+                if not tunnel_row:
+                    flash("Selected tunnel was not found.", "error")
+                    return redirect(url_for("dashboard"))
+                if int(tunnel_row["enabled"] or 0) != 1:
+                    flash("Selected tunnel is disabled.", "error")
+                    return redirect(url_for("dashboard"))
+                tunnel_url = _build_tunnel_url(tunnel_row["scheme"], tunnel_row["host"], tunnel_row["port"])
+                if not tunnel_url:
+                    flash("Selected tunnel has invalid configuration.", "error")
+                    return redirect(url_for("dashboard"))
+                tunnel_label = tunnel_row["name"]
+            elif selected_mode == "c":
+                tunnel_chain_id_value = selected_id_value
+                chain_row = db.execute(
+                    """
+                    SELECT id, name, enabled
+                    FROM user_tunnel_chains
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (tunnel_chain_id_value, int(session["user_id"])),
+                ).fetchone()
+                if not chain_row:
+                    flash("Selected tunnel chain was not found.", "error")
+                    return redirect(url_for("dashboard"))
+                if int(chain_row["enabled"] or 0) != 1:
+                    flash("Selected tunnel chain is disabled.", "error")
+                    return redirect(url_for("dashboard"))
+                hops = _list_chain_hops(db, int(session["user_id"]), tunnel_chain_id_value)
+                if not hops:
+                    flash("Selected tunnel chain has no hops.", "error")
+                    return redirect(url_for("dashboard"))
+                chain_hops = []
+                for hop in hops:
+                    if int(hop["enabled"] or 0) != 1:
+                        flash(f"Tunnel chain hop '{hop['name']}' is disabled.", "error")
+                        return redirect(url_for("dashboard"))
+                    hop_url = _build_tunnel_url(hop["scheme"], hop["host"], hop["port"])
+                    if not hop_url:
+                        flash(f"Tunnel chain hop '{hop['name']}' is invalid.", "error")
+                        return redirect(url_for("dashboard"))
+                    chain_hops.append(
+                        {
+                            "tunnel_id": int(hop["tunnel_id"]),
+                            "name": hop["name"],
+                            "scheme": hop["scheme"],
+                            "host": hop["host"],
+                            "port": int(hop["port"]),
+                        }
+                    )
+                tunnel_label = f"{chain_row['name']} [chain]"
+                tunnel_url = "chain_json:" + json.dumps(chain_hops)
+            else:
+                flash("Unsupported tunnel selection mode.", "error")
+                return redirect(url_for("dashboard"))
+
+        if selected_network_profile_id:
+            try:
+                network_profile_id_value = int(selected_network_profile_id)
+            except ValueError:
+                flash("Invalid network profile selection.", "error")
+                return redirect(url_for("dashboard"))
+            profile_row = db.execute(
                 """
-                SELECT id, name, scheme, host, port, enabled
-                FROM user_tunnels
+                SELECT id, name, proxy_url, ca_bundle_path, enabled
+                FROM user_network_profiles
                 WHERE id = ? AND user_id = ?
                 """,
-                (tunnel_id_value, int(session["user_id"])),
+                (network_profile_id_value, int(session["user_id"])),
             ).fetchone()
-            if not tunnel_row:
-                flash("Selected tunnel was not found.", "error")
+            if not profile_row:
+                flash("Selected network profile was not found.", "error")
                 return redirect(url_for("dashboard"))
-            if int(tunnel_row["enabled"] or 0) != 1:
-                flash("Selected tunnel is disabled.", "error")
+            if int(profile_row["enabled"] or 0) != 1:
+                flash("Selected network profile is disabled.", "error")
                 return redirect(url_for("dashboard"))
-            tunnel_url = _build_tunnel_url(tunnel_row["scheme"], tunnel_row["host"], tunnel_row["port"])
-            if not tunnel_url:
-                flash("Selected tunnel has invalid configuration.", "error")
-                return redirect(url_for("dashboard"))
-            tunnel_label = tunnel_row["name"]
+            network_profile_label = profile_row["name"]
+            network_proxy_url = (profile_row["proxy_url"] or "").strip() or None
+            network_ca_bundle_path = (profile_row["ca_bundle_path"] or "").strip() or None
 
         category, name = module_path.split("/", 1)
         input_values = [line for line in input_values_text.splitlines() if line.strip()]
@@ -2145,8 +2856,8 @@ def create_app():
         run_cursor = db.execute(
             """
             INSERT INTO runs
-            (user_id, module_category, module_name, credential_id, tunnel_id, tunnel_label, tunnel_url, depends_on_run_id, cancel_requested, input_values_json, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, module_category, module_name, credential_id, tunnel_id, tunnel_chain_id, tunnel_label, tunnel_url, network_profile_id, network_profile_label, network_proxy_url, network_ca_bundle_path, depends_on_run_id, cancel_requested, input_values_json, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session["user_id"],
@@ -2154,8 +2865,13 @@ def create_app():
                 name,
                 credential_id_value,
                 tunnel_id_value,
+                tunnel_chain_id_value,
                 tunnel_label,
                 tunnel_url,
+                network_profile_id_value,
+                network_profile_label,
+                network_proxy_url,
+                network_ca_bundle_path,
                 dependency_id_values[0] if dependency_id_values else None,
                 0,
                 json.dumps(input_values),

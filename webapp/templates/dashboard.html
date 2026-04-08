@@ -66,11 +66,28 @@
           <option value="">Direct (no tunnel)</option>
           {% for t in tunnels %}
           {% if t.enabled %}
-          <option value="{{ t.id }}">{{ t.name }} ({{ t.scheme }}://{{ t.host }}:{{ t.port }})</option>
+          <option value="t:{{ t.id }}">{{ t.name }} ({{ t.scheme }}://{{ t.host }}:{{ t.port }})</option>
+          {% endif %}
+          {% endfor %}
+          {% for chain in tunnel_chains %}
+          {% if chain.enabled %}
+          <option value="c:{{ chain.id }}">{{ chain.name }} [chain {{ chain.hop_count }} hops]</option>
           {% endif %}
           {% endfor %}
         </select>
       </label>
+
+      <label>Network Profile (optional)
+        <select name="network_profile_id">
+          <option value="">No network profile</option>
+          {% for np in network_profiles %}
+          {% if np.enabled %}
+          <option value="{{ np.id }}">{{ np.name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <p class="hint">Applies per-run proxy URL and CA bundle path for this operator only.</p>
 
       <label id="depends_on_label" style="display:none;">Depends On Runs
         <select id="depends_on_run_ids" name="depends_on_run_ids" multiple size="6">

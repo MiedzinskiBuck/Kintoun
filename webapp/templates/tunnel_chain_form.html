@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>{% if chain %}Edit Tunnel Chain{% else %}New Tunnel Chain{% endif %}</h1>
+  <p class="hint">Define ordered hop tunnel IDs, one per line. The order controls the chain route.</p>
+  <form method="post" class="form-grid">
+    <label>Name
+      <input type="text" name="name" value="{{ chain.name if chain else '' }}" required>
+    </label>
+    <label>Hop Tunnel IDs (one per line)
+      <textarea name="hop_tunnel_ids" rows="8" required>{{ chain.hop_tunnel_ids if chain else '' }}</textarea>
+    </label>
+    <label>
+      <input type="checkbox" name="enabled" {% if not chain or chain.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <button type="submit">Save Chain</button>
+  </form>
+  <hr>
+  <h2>Available Tunnels</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Endpoint</th>
+        <th>Enabled</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tunnels %}
+      <tr>
+        <td>{{ t.id }}</td>
+        <td>{{ t.name }}</td>
+        <td>{{ t.scheme }}://{{ t.host }}:{{ t.port }}</td>
+        <td>{{ 'Yes' if t.enabled else 'No' }}</td>
+      </tr>
+      {% endfor %}
+      {% if not tunnels %}
+      <tr>
+        <td colspan="4">No tunnels configured yet.</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
