@@ -4,18 +4,115 @@
   <div class="row">
     <h1>Run #{{ run.id }}</h1>
     <div class="row-actions">
+      {% if session.get('role') in ['admin', 'operator'] and run.status in ['queued', 'running'] %}
+      <form method="post" action="{{ url_for('run_cancel', run_id=run.id) }}" onsubmit="return confirm('Cancel run #{{ run.id }}?');">
+        <button type="submit">Cancel Run</button>
+      </form>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'operator'] %}
       <form method="post" action="{{ url_for('run_delete', run_id=run.id) }}" onsubmit="return confirm('Delete run #{{ run.id }}?');">
         <button type="submit" class="danger">Delete Run</button>
       </form>
+      {% endif %}
+      <a class="button" href="{{ url_for('run_export_json', run_id=run.id) }}">Export JSON</a>
       <a class="button" href="{{ url_for('dashboard') }}">Back</a>
     </div>
   </div>
   <p><strong>Operator:</strong> {{ run.username }}</p>
   <p><strong>Module:</strong> {{ run.module_category }}/{{ run.module_name }}</p>
   <p><strong>Credential:</strong> {{ run.credential_name }}</p>
+  <p><strong>Tunnel:</strong> {{ run.tunnel_label or '-' }}{% if run.tunnel_url %} ({{ run.tunnel_url }}){% endif %}</p>
   <p><strong>Status:</strong> <span class="status {{ run.status }}">{{ run.status }}</span></p>
   <p><strong>Started:</strong> {{ run.started_at or '-' }}</p>
   <p><strong>Finished:</strong> {{ run.finished_at or '-' }}</p>
+  <p><strong>API Calls:</strong> {{ run.api_calls if run.api_calls is not none else '-' }}</p>
+  <p><strong>Execution Limits:</strong> timeout={{ run.timeout_seconds if run.timeout_seconds is not none else '-' }}s, max_calls={{ run.max_api_calls if run.max_api_calls is not none else '-' }}</p>
+  <p><strong>Depends On:</strong>
+    {% if dependencies %}
+      {% for d in dependencies %}
+        <a class="inline-link" href="{{ url_for('run_detail', run_id=d.id) }}">#{{ d.id }} ({{ d.module_category }}/{{ d.module_name }})</a>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    {% else %}
+      -
+    {% endif %}
+  </p>
+  <p><strong>Used By:</strong>
+    {% if dependents %}
+      {% for d in dependents %}
+        <a class="inline-link" href="{{ url_for('run_detail', run_id=d.id) }}">#{{ d.id }} ({{ d.module_category }}/{{ d.module_name }})</a>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    {% else %}
+      -
+    {% endif %}
+  </p>
+
+  <h2>{{ presenter.title }}</h2>
+  <section class="result-highlights">
+    {% for item in presenter.highlights %}
+    <article class="result-kpi">
+      <h3>{{ item.value }}</h3>
+      <p>{{ item.label }}</p>
+    </article>
+    {% endfor %}
+  </section>
+
+  {% for section in presenter.sections %}
+  <h2>{{ section.title }}</h2>
+  {% if section.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for col in section.columns %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in section.rows %}
+        <tr>
+          {% for col in section.columns %}
+          <td>{{ row.get(col, '-') }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No rows available.</p>
+  {% endif %}
+  {% endfor %}
+
+  <h2>Findings</h2>
+  {% if run_findings %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>Category</th>
+          <th>Title</th>
+          <th>Resource</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in run_findings %}
+        <tr>
+          <td><span class="severity severity-{{ f.severity }}">{{ f.severity|upper }}</span></td>
+          <td>{{ f.category }}</td>
+          <td>{{ f.title }}</td>
+          <td>{{ f.resource_type or '-' }} / {{ f.resource_id or '-' }}</td>
+          <td>{{ f.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No findings extracted for this run.</p>
+  {% endif %}
 
   {% if run.status == "failed" %}
   <h2>Failure Summary</h2>
@@ -23,7 +120,10 @@
   {% endif %}
 
   <h2>Result JSON</h2>
-  <pre>{{ run.result_json or '' }}</pre>
+  <details>
+    <summary>Show raw JSON</summary>
+    <pre>{{ run.result_json or '' }}</pre>
+  </details>
 
   {% if run.error_text %}
   <h2>Execution Error</h2>

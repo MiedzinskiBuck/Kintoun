@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>{% if user %}Edit User{% else %}New User{% endif %}</h1>
+  <form method="post" class="form-grid">
+    <label>Username
+      <input type="text" name="username" value="{{ user.username if user else '' }}" required>
+    </label>
+    <label>Role
+      <select name="role" required>
+        <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>Admin</option>
+        <option value="operator" {% if not user or user.role == 'operator' %}selected{% endif %}>Operator</option>
+        <option value="viewer" {% if user and user.role == 'viewer' %}selected{% endif %}>Viewer</option>
+      </select>
+    </label>
+    <label>{% if user %}New Password (optional){% else %}Password{% endif %}
+      <input type="password" name="password" {% if not user %}required{% endif %} minlength="8">
+    </label>
+    <button type="submit">Save</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card small">
+  <h1>Register Operator</h1>
+  <form method="post" class="form-grid">
+    <label>Username
+      <input type="text" name="username" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" minlength="8" required>
+    </label>
+    <label>Confirm Password
+      <input type="password" name="password_confirm" minlength="8" required>
+    </label>
+    <label>Role
+      <select name="role" required>
+        <option value="operator">Operator</option>
+        <option value="viewer">Viewer (Read-only)</option>
+      </select>
+    </label>
+    <button type="submit">Create Account</button>
+  </form>
+  <p class="hint">Admin role cannot be self-registered.</p>
+  <p><a class="inline-link" href="{{ url_for('login') }}">Back to Login</a></p>
+</section>
+{% endblock %}

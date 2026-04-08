@@ -1,3 +1,4 @@
+import botocore
 from functions import create_client
 
 class IAM():
@@ -60,3 +61,9 @@ class IAM():
             roles = self.client.list_roles()
 
         return roles
+
+    def get_role(self, role_name):
+        try:
+            return self.client.get_role(RoleName=role_name)
+        except botocore.exceptions.ClientError:
+            return False

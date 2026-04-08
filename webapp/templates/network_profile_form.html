@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>{% if profile %}Edit Network Profile{% else %}New Network Profile{% endif %}</h1>
+  <form method="post" class="form-grid">
+    <label>Name
+      <input type="text" name="name" value="{{ profile.name if profile else '' }}" required>
+    </label>
+    <label>Proxy URL (optional)
+      <input type="text" name="proxy_url" value="{{ profile.proxy_url if profile else '' }}" placeholder="http://user:password@proxy.example.com:8080">
+    </label>
+    <label>CA Bundle Path (optional)
+      <input type="text" name="ca_bundle_path" value="{{ profile.ca_bundle_path if profile else '' }}" placeholder="/opt/aws/cert.pem">
+    </label>
+    <label>
+      <input type="checkbox" name="enabled" {% if not profile or profile.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <button type="submit">Save Network Profile</button>
+  </form>
+  <p class="hint">Use AWS_CA_BUNDLE equivalent here per run/user. Passwords in proxy URL should be URL-encoded.</p>
+</section>
+{% endblock %}

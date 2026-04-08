@@ -8,12 +8,25 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">Kintoun Control Plane</div>
+    <div class="brand">Kintoun Control Plane{% if session.get('role') %} | {{ session.get('role')|upper }}{% endif %}</div>
     {% if session.get('user_id') %}
       <nav class="nav">
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('users_list') }}">User Management</a>
+        <a href="{{ url_for('admin_credentials') }}">Credential Ownership</a>
+        {% elif session.get('role') == 'operator' %}
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="{{ url_for('credentials_list') }}">Credentials</a>
+        <a href="{{ url_for('tunnels_list') }}">Tunnels</a>
+        {% elif session.get('role') == 'viewer' %}
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% endif %}
         <a href="{{ url_for('logout') }}">Logout</a>
+      </nav>
+    {% else %}
+      <nav class="nav">
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}">Register</a>
       </nav>
     {% endif %}
   </header>

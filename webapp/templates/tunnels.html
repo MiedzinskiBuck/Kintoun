@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="row">
+    <h1>Tunnel Profiles</h1>
+    <div class="row-actions">
+      <a class="button" href="{{ url_for('tunnels_new') }}">Add Tunnel</a>
+      <a class="button" href="{{ url_for('tunnel_chains_new') }}">Add Chain</a>
+      <a class="button" href="{{ url_for('network_profiles_new') }}">Add Network Profile</a>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Scheme</th>
+        <th>Host</th>
+        <th>Port</th>
+        <th>Enabled</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tunnels %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td>{{ t.scheme }}</td>
+        <td>{{ t.host }}</td>
+        <td>{{ t.port }}</td>
+        <td>{{ 'Yes' if t.enabled else 'No' }}</td>
+        <td>{{ t.updated_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('tunnels_edit', tunnel_id=t.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('tunnels_delete', tunnel_id=t.id) }}" onsubmit="return confirm('Delete tunnel {{ t.name }}?');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="row">
+    <h2>Tunnel Chains</h2>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Hops</th>
+        <th>Enabled</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in chains %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.hop_names or '-' }} ({{ c.hop_count }})</td>
+        <td>{{ 'Yes' if c.enabled else 'No' }}</td>
+        <td>{{ c.updated_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('tunnel_chains_edit', chain_id=c.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('tunnel_chains_delete', chain_id=c.id) }}" onsubmit="return confirm('Delete tunnel chain {{ c.name }}?');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not chains %}
+      <tr>
+        <td colspan="5">No chains configured yet.</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="row">
+    <h2>Network Profiles</h2>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Proxy URL</th>
+        <th>CA Bundle</th>
+        <th>Enabled</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in network_profiles %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td>{{ p.proxy_url or '-' }}</td>
+        <td>{{ p.ca_bundle_path or '-' }}</td>
+        <td>{{ 'Yes' if p.enabled else 'No' }}</td>
+        <td>{{ p.updated_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('network_profiles_edit', profile_id=p.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('network_profiles_delete', profile_id=p.id) }}" onsubmit="return confirm('Delete network profile {{ p.name }}?');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not network_profiles %}
+      <tr>
+        <td colspan="6">No network profiles configured yet.</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
