@@ -13,11 +13,11 @@ class Cloudformation():
             if token:
                 return self.client.list_stacks(NextToken=token)
             return self.client.list_stacks()
-        except botocore.exceptions.ClientError:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False
 
     def get_template(self, stack_id):
         try:
             return self.client.get_template(StackName=stack_id)
-        except botocore.exceptions.ClientError:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False

@@ -13,5 +13,5 @@ class Lambda():
             if marker:
                 return self.client.list_functions(Marker=marker)
             return self.client.list_functions()
-        except botocore.exceptions.ClientError:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False

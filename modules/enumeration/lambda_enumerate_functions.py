@@ -17,6 +17,7 @@ MODULE_METADATA = {
     "result_view": "lambda_enumerate_functions",
 }
 
+import botocore
 from functions import lambda_handler, region_parser, utils
 
 
@@ -61,27 +62,31 @@ def main(botoconfig, session):
     total = 0
 
     for region in regions:
-        lamb = lambda_handler.Lambda(botoconfig, session, region)
-        response = lamb.list_functions()
-        if not response:
-            results["regions"][region] = []
-            results["errors"].append(
-                {
-                    "region": region,
-                    "error": "Failed to list Lambda functions in this region.",
-                }
-            )
-            continue
-
-        region_functions = parse_functions(response)
-        while response.get("NextMarker"):
-            response = lamb.list_functions(response.get("NextMarker"))
+        try:
+            lamb = lambda_handler.Lambda(botoconfig, session, region)
+            response = lamb.list_functions()
             if not response:
-                break
-            region_functions.extend(parse_functions(response))
+                results["regions"][region] = []
+                results["errors"].append(
+                    {
+                        "region": region,
+                        "error": "Failed to list Lambda functions in this region.",
+                    }
+                )
+                continue
 
-        results["regions"][region] = region_functions
-        total += len(region_functions)
+            region_functions = parse_functions(response)
+            while response.get("NextMarker"):
+                response = lamb.list_functions(response.get("NextMarker"))
+                if not response:
+                    break
+                region_functions.extend(parse_functions(response))
+
+            results["regions"][region] = region_functions
+            total += len(region_functions)
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError) as exc:
+            results["regions"][region] = []
+            results["errors"].append({"region": region, "error": str(exc)})
 
     results["total_functions"] = total
-    return utils.module_result(data=results, errors=[])
+    return utils.module_result(data=results, errors=results["errors"])

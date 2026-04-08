@@ -75,7 +75,7 @@ def main(botoconfig, session):
 
             results["regions"][region] = region_instances
             total += len(region_instances)
-        except botocore.exceptions.ClientError as exc:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError) as exc:
             results["regions"][region] = []
             results["errors"].append({"region": region, "error": str(exc)})
 

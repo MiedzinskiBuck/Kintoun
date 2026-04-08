@@ -14,15 +14,17 @@ class EC2():
                 instances = self.client.describe_instances(MaxResults=1000, NextToken=token)
             else:
                 instances = self.client.describe_instances(MaxResults=1000)
-        except botocore.exceptions.ClientError as e:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False
 
         return instances
 
     def describe_attributes(self, attribute, instanceId):
-        attribute = self.client.describe_instance_attribute(
-            Attribute=attribute,
-            InstanceId=instanceId
-        )
-
-        return attribute
+        try:
+            attribute = self.client.describe_instance_attribute(
+                Attribute=attribute,
+                InstanceId=instanceId
+            )
+            return attribute
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
+            return False

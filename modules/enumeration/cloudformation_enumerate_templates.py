@@ -16,6 +16,7 @@ MODULE_METADATA = {
     "risk_level": "low",
 }
 
+import botocore
 from functions import Cloudformation_handler, region_parser, utils
 
 
@@ -56,54 +57,58 @@ def main(botoconfig, session):
     total_templates = 0
 
     for region in regions:
-        cfn = Cloudformation_handler.Cloudformation(botoconfig, session, region)
-        response = cfn.list_stacks()
-        if not response:
-            results["regions"][region] = {"count": 0, "templates": [], "template_errors": []}
-            results["errors"].append(
-                {
-                    "region": region,
-                    "error": "Failed to list CloudFormation stacks in this region.",
-                }
-            )
-            continue
-
-        stack_summaries = parse_stack_summaries(response)
-        while response.get("NextToken"):
-            response = cfn.list_stacks(response.get("NextToken"))
+        try:
+            cfn = Cloudformation_handler.Cloudformation(botoconfig, session, region)
+            response = cfn.list_stacks()
             if not response:
-                break
-            stack_summaries.extend(parse_stack_summaries(response))
-
-        templates = []
-        template_errors = []
-        for stack in stack_summaries:
-            stack_id = stack.get("stack_id") or stack.get("stack_name")
-            template_response = cfn.get_template(stack_id)
-            if not template_response:
-                template_errors.append(
+                results["regions"][region] = {"count": 0, "templates": [], "template_errors": []}
+                results["errors"].append(
                     {
-                        "stack_id": stack.get("stack_id"),
-                        "stack_name": stack.get("stack_name"),
-                        "error": "Could not retrieve template for stack.",
+                        "region": region,
+                        "error": "Failed to list CloudFormation stacks in this region.",
                     }
                 )
                 continue
 
-            templates.append(
-                {
-                    **stack,
-                    "template_body": template_response.get("TemplateBody"),
-                    "stages_available": template_response.get("StagesAvailable", []),
-                }
-            )
+            stack_summaries = parse_stack_summaries(response)
+            while response.get("NextToken"):
+                response = cfn.list_stacks(response.get("NextToken"))
+                if not response:
+                    break
+                stack_summaries.extend(parse_stack_summaries(response))
 
-        results["regions"][region] = {
-            "count": len(templates),
-            "templates": templates,
-            "template_errors": template_errors,
-        }
-        total_templates += len(templates)
+            templates = []
+            template_errors = []
+            for stack in stack_summaries:
+                stack_id = stack.get("stack_id") or stack.get("stack_name")
+                template_response = cfn.get_template(stack_id)
+                if not template_response:
+                    template_errors.append(
+                        {
+                            "stack_id": stack.get("stack_id"),
+                            "stack_name": stack.get("stack_name"),
+                            "error": "Could not retrieve template for stack.",
+                        }
+                    )
+                    continue
+
+                templates.append(
+                    {
+                        **stack,
+                        "template_body": template_response.get("TemplateBody"),
+                        "stages_available": template_response.get("StagesAvailable", []),
+                    }
+                )
+
+            results["regions"][region] = {
+                "count": len(templates),
+                "templates": templates,
+                "template_errors": template_errors,
+            }
+            total_templates += len(templates)
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError) as exc:
+            results["regions"][region] = {"count": 0, "templates": [], "template_errors": []}
+            results["errors"].append({"region": region, "error": str(exc)})
 
     results["total_templates"] = total_templates
     return utils.module_result(data=results, errors=[])

@@ -136,6 +136,8 @@ def main(botoconfig, session, context=None):
                 instance_id = instance.get("instance_id")
                 try:
                     attr = ec2.describe_attributes("userData", instance_id)
+                    if not attr:
+                        raise RuntimeError("DescribeInstanceAttribute returned no data.")
                     user_data_b64 = attr.get("UserData", {}).get("Value")
                     user_data_text = decode_user_data(user_data_b64)
                     has_user_data = user_data_b64 is not None
@@ -150,7 +152,7 @@ def main(botoconfig, session, context=None):
                             "user_data": user_data_text,
                         }
                     )
-                except botocore.exceptions.ClientError as exc:
+                except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError, RuntimeError) as exc:
                     region_errors.append(
                         f"Failed to fetch user data for {instance_id}: {str(exc)}"
                     )
@@ -171,7 +173,7 @@ def main(botoconfig, session, context=None):
                 "instances": enriched_instances,
                 "errors": region_errors,
             }
-        except botocore.exceptions.ClientError as exc:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError) as exc:
             results["regions"][region] = {
                 "count_instances": 0,
                 "count_with_user_data": 0,
