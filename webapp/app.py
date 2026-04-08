@@ -1133,6 +1133,49 @@ def create_app():
             ],
         }
 
+    def _present_lambda_enumerate_functions(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        regions = data.get("regions", {}) if isinstance(data, dict) else {}
+        rows = []
+        region_rows = []
+        for region, functions in regions.items():
+            fn_list = functions or []
+            region_rows.append({"Region": region, "Functions": len(fn_list)})
+            for fn in fn_list:
+                if not isinstance(fn, dict):
+                    continue
+                rows.append(
+                    {
+                        "Region": region,
+                        "FunctionName": fn.get("function_name") or "-",
+                        "FunctionArn": fn.get("function_arn") or "-",
+                        "Role": fn.get("role") or "-",
+                        "Runtime": fn.get("runtime") or "-",
+                    }
+                )
+        rows.sort(key=lambda r: (r["Region"], r["FunctionName"]))
+        region_rows.sort(key=lambda r: r["Region"])
+        return {
+            "title": "Lambda Functions Inventory",
+            "highlights": [
+                {"label": "Total Functions", "value": data.get("total_functions", len(rows))},
+                {"label": "Regions Scanned", "value": len(regions)},
+                {"label": "Regions With Functions", "value": sum(1 for r in region_rows if r["Functions"] > 0)},
+            ],
+            "sections": [
+                {
+                    "title": "Functions by Region",
+                    "columns": ["Region", "Functions"],
+                    "rows": region_rows,
+                },
+                {
+                    "title": "Functions Detail",
+                    "columns": ["Region", "FunctionName", "FunctionArn", "Role", "Runtime"],
+                    "rows": rows[:1000],
+                },
+            ],
+        }
+
     def _build_presenter(run_row, result_obj, result_view=None):
         module_path = f"{run_row['module_category']}/{run_row['module_name']}"
         presenters = {
@@ -1140,10 +1183,12 @@ def create_app():
             "ec2_enumerate_user_data": _present_ec2_enumerate_user_data,
             "iam_enumerate_roles": _present_iam_enumerate_roles,
             "iam_enumerate_role_trust_policy": _present_iam_role_trust,
+            "lambda_enumerate_functions": _present_lambda_enumerate_functions,
             "enumeration/ec2_enumerate_instances": _present_ec2_enumerate_instances,
             "enumeration/ec2_enumerate_user_data": _present_ec2_enumerate_user_data,
             "enumeration/iam_enumerate_roles": _present_iam_enumerate_roles,
             "enumeration/iam_enumerate_role_trust_policy": _present_iam_role_trust,
+            "enumeration/lambda_enumerate_functions": _present_lambda_enumerate_functions,
         }
         presenter = presenters.get(result_view) or presenters.get(module_path) or _present_default
         try:

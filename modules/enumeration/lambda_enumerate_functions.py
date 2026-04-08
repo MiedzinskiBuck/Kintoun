@@ -14,6 +14,7 @@ MODULE_METADATA = {
     ],
     "output_type": "json",
     "risk_level": "low",
+    "result_view": "lambda_enumerate_functions",
 }
 
 from functions import lambda_handler, region_parser, utils
