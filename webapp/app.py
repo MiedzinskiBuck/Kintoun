@@ -592,6 +592,17 @@ def create_app():
                 raise RuntimeError("Proxy response exceeded allowed size.")
         return data
 
+    def _http_reason_phrase(message, fallback="Bad Gateway"):
+        if not message:
+            return fallback
+        filtered = "".join(ch for ch in str(message) if ch not in "\r\n")
+        filtered = filtered.strip()
+        if not filtered:
+            return fallback
+        if len(filtered) > 180:
+            filtered = filtered[:180]
+        return filtered
+
     def _http_connect(sock, host, port, username=None, password=None):
         headers = []
         if username:
@@ -742,9 +753,10 @@ def create_app():
                 upstream = _connect_via_chain(self.hops, dest_host, dest_port)
                 client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
                 self._bridge(client, upstream)
-            except Exception:
+            except Exception as exc:
                 try:
-                    client.sendall(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+                    reason = _http_reason_phrase(str(exc))
+                    client.sendall(f"HTTP/1.1 502 {reason}\r\n\r\n".encode("utf-8", errors="replace"))
                 except Exception:
                     pass
             finally:
