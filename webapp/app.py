@@ -548,6 +548,24 @@ def create_app():
             return ""
         return value
 
+    def _proxy_url_to_hop(proxy_url, name="proxy"):
+        value = (proxy_url or "").strip()
+        parsed = urllib.parse.urlparse(value)
+        if parsed.scheme not in ("http", "https", "socks5", "socks5h"):
+            raise RuntimeError(f"Unsupported proxy scheme: {parsed.scheme}")
+        if not parsed.hostname or not parsed.port:
+            raise RuntimeError("Proxy URL must include host and port.")
+        username = urllib.parse.unquote(parsed.username) if parsed.username else None
+        password = urllib.parse.unquote(parsed.password) if parsed.password else None
+        return {
+            "name": name,
+            "scheme": parsed.scheme,
+            "host": parsed.hostname,
+            "port": int(parsed.port),
+            "username": username,
+            "password": password,
+        }
+
     def _build_tunnel_url(scheme, host, port):
         normalized_scheme = (scheme or "").strip().lower()
         normalized_host = (host or "").strip()
@@ -574,11 +592,17 @@ def create_app():
                 raise RuntimeError("Proxy response exceeded allowed size.")
         return data
 
-    def _http_connect(sock, host, port):
+    def _http_connect(sock, host, port, username=None, password=None):
+        headers = []
+        if username:
+            raw = f"{username}:{password or ''}".encode("utf-8")
+            token = base64.b64encode(raw).decode("ascii")
+            headers.append(f"Proxy-Authorization: Basic {token}\r\n")
         request_data = (
             f"CONNECT {host}:{int(port)} HTTP/1.1\r\n"
             f"Host: {host}:{int(port)}\r\n"
             "Proxy-Connection: Keep-Alive\r\n"
+            + "".join(headers) +
             "\r\n"
         ).encode("utf-8")
         sock.sendall(request_data)
@@ -650,9 +674,15 @@ def create_app():
                     target_host = dest_host
                     target_port = int(dest_port)
                 if scheme in ("http", "https"):
-                    _http_connect(proxy_sock, target_host, target_port)
+                    _http_connect(
+                        proxy_sock,
+                        target_host,
+                        target_port,
+                        username=hop.get("username"),
+                        password=hop.get("password"),
+                    )
                 elif scheme in ("socks5", "socks5h"):
-                    _socks5_connect(proxy_sock, target_host, target_port, resolve_remote=(scheme == "socks5h"))
+                    _socks5_connect(proxy_sock, target_host, target_port, resolve_remote=True)
                 else:
                     raise RuntimeError(f"Unsupported proxy scheme in chain: {scheme}")
             proxy_sock.settimeout(None)
@@ -1393,20 +1423,37 @@ def create_app():
                 network_proxy_raw = (run["network_proxy_url"] or "").strip() if "network_proxy_url" in run.keys() else ""
                 verify_path = (run["network_ca_bundle_path"] or "").strip() if "network_ca_bundle_path" in run.keys() else ""
                 effective_proxy_url = None
+                combined_hops = []
                 if tunnel_raw.startswith("chain_json:"):
                     try:
-                        hops = json.loads(tunnel_raw[len("chain_json:"):])
+                        chain_hops = json.loads(tunnel_raw[len("chain_json:"):])
                     except Exception:
-                        hops = []
-                    if not isinstance(hops, list) or not hops:
+                        chain_hops = []
+                    if not isinstance(chain_hops, list) or not chain_hops:
                         raise RuntimeError("Invalid tunnel chain configuration for run.")
-                    chain_relay = ProxyChainRelay(hops)
+                    for hop in chain_hops:
+                        if not isinstance(hop, dict):
+                            continue
+                        combined_hops.append(
+                            {
+                                "name": hop.get("name", "tunnel-hop"),
+                                "scheme": hop.get("scheme"),
+                                "host": hop.get("host"),
+                                "port": int(hop.get("port")),
+                                "username": hop.get("username"),
+                                "password": hop.get("password"),
+                            }
+                        )
+                elif tunnel_raw:
+                    combined_hops.append(_proxy_url_to_hop(tunnel_raw, name="tunnel"))
+
+                if network_proxy_raw:
+                    combined_hops.append(_proxy_url_to_hop(network_proxy_raw, name="network-profile-proxy"))
+
+                if combined_hops:
+                    chain_relay = ProxyChainRelay(combined_hops)
                     chain_relay.start()
                     effective_proxy_url = chain_relay.local_proxy_url
-                elif tunnel_raw:
-                    effective_proxy_url = tunnel_raw
-                elif network_proxy_raw:
-                    effective_proxy_url = network_proxy_raw
 
                 if effective_proxy_url:
                     botoconfig = Config(
