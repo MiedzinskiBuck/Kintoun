@@ -1188,6 +1188,52 @@ def create_app():
             ],
         }
 
+    def _present_iam_privesc_scan(run_row, result_obj):
+        data = result_obj.get("data", {}) if isinstance(result_obj, dict) else {}
+        roles = data.get("roles", []) if isinstance(data, dict) else []
+        rows = []
+        for role in roles[:1000]:
+            if not isinstance(role, dict):
+                continue
+            entities = role.get("cross_account_entities", []) or []
+            entity_sample = ", ".join(
+                f"{e.get('account_id')}:{e.get('value')}" for e in entities[:2] if isinstance(e, dict)
+            )
+            rows.append(
+                {
+                    "RoleName": role.get("role_name") or "-",
+                    "RoleArn": role.get("role_arn") or "-",
+                    "HighRisk": "YES" if role.get("high_risk") else "NO",
+                    "CrossAccountTrust": "YES" if role.get("cross_account_trust") else "NO",
+                    "PowerfulPolicies": "YES" if role.get("powerful_permissions") else "NO",
+                    "RuntimeDetails": (role.get("reasons") or ["-"])[0] if role.get("reasons") else "-",
+                    "TrustSample": entity_sample or "-",
+                }
+            )
+        return {
+            "title": "IAM Privilege Escalation Risk Scan",
+            "highlights": [
+                {"label": "Scanned Roles", "value": data.get("scanned_roles_count", len(roles))},
+                {"label": "High-Risk Roles", "value": data.get("high_risk_roles_count", 0)},
+                {"label": "Account", "value": data.get("current_account_id", "-")},
+            ],
+            "sections": [
+                {
+                    "title": "Role Risk Summary",
+                    "columns": [
+                        "RoleName",
+                        "RoleArn",
+                        "HighRisk",
+                        "CrossAccountTrust",
+                        "PowerfulPolicies",
+                        "RuntimeDetails",
+                        "TrustSample",
+                    ],
+                    "rows": rows,
+                }
+            ],
+        }
+
     def _build_presenter(run_row, result_obj, result_view=None):
         module_path = f"{run_row['module_category']}/{run_row['module_name']}"
         presenters = {
@@ -1196,11 +1242,13 @@ def create_app():
             "iam_enumerate_roles": _present_iam_enumerate_roles,
             "iam_enumerate_role_trust_policy": _present_iam_role_trust,
             "lambda_enumerate_functions": _present_lambda_enumerate_functions,
+            "iam_privesc_scan": _present_iam_privesc_scan,
             "enumeration/ec2_enumerate_instances": _present_ec2_enumerate_instances,
             "enumeration/ec2_enumerate_user_data": _present_ec2_enumerate_user_data,
             "enumeration/iam_enumerate_roles": _present_iam_enumerate_roles,
             "enumeration/iam_enumerate_role_trust_policy": _present_iam_role_trust,
             "enumeration/lambda_enumerate_functions": _present_lambda_enumerate_functions,
+            "privilege_escalation/iam_privesc_scan": _present_iam_privesc_scan,
         }
         presenter = presenters.get(result_view) or presenters.get(module_path) or _present_default
         try:
@@ -1348,6 +1396,37 @@ def create_app():
                     resource_id="current_session",
                     details=summary,
                 )
+
+        if module_path == "privilege_escalation/iam_privesc_scan" and isinstance(data, dict):
+            for role in data.get("roles", []) or []:
+                if not isinstance(role, dict):
+                    continue
+                role_name = role.get("role_name")
+                if role.get("high_risk"):
+                    add_finding(
+                        "high",
+                        "privilege_escalation",
+                        "High-risk cross-account assumable role",
+                        f"Role {role_name} appears both powerful and assumable by cross-account principal(s).",
+                        resource_type="iam_role",
+                        resource_id=role_name,
+                        details={
+                            "cross_account_entities": role.get("cross_account_entities", []),
+                            "reasons": role.get("reasons", []),
+                        },
+                    )
+                elif role.get("cross_account_trust"):
+                    add_finding(
+                        "medium",
+                        "cross_account_trust",
+                        "Role assumable by cross-account principal",
+                        f"Role {role_name} includes cross-account trust entries.",
+                        resource_type="iam_role",
+                        resource_id=role_name,
+                        details={
+                            "cross_account_entities": role.get("cross_account_entities", []),
+                        },
+                    )
 
         return findings[:1000]
 
@@ -2905,21 +2984,71 @@ def create_app():
         required_dependency_count = len(module_dependencies)
 
         dependency_id_values = []
+        dependency_auto_selected = False
         if module_dependencies:
-            if not depends_on_run_ids:
-                flash("This module requires dependency runs before queueing.", "error")
-                return redirect(url_for("dashboard"))
-            if dependency_mode == "single" and len(depends_on_run_ids) != 1:
-                flash("Select exactly one dependency run for this module.", "error")
-                return redirect(url_for("dashboard"))
-            if dependency_mode == "multiple" and len(depends_on_run_ids) < required_dependency_count:
-                flash("Select all required dependency runs for this module.", "error")
-                return redirect(url_for("dashboard"))
-            try:
-                dependency_id_values = [int(dep_id) for dep_id in depends_on_run_ids]
-            except ValueError:
-                flash("Invalid dependency run selected.", "error")
-                return redirect(url_for("dashboard"))
+            if depends_on_run_ids:
+                if dependency_mode == "single" and len(depends_on_run_ids) != 1:
+                    flash("Select exactly one dependency run for this module.", "error")
+                    return redirect(url_for("dashboard"))
+                if dependency_mode == "multiple" and len(depends_on_run_ids) < required_dependency_count:
+                    flash("Select all required dependency runs for this module.", "error")
+                    return redirect(url_for("dashboard"))
+                try:
+                    dependency_id_values = [int(dep_id) for dep_id in depends_on_run_ids]
+                except ValueError:
+                    flash("Invalid dependency run selected.", "error")
+                    return redirect(url_for("dashboard"))
+            else:
+                # Auto-resolve latest compatible completed dependency runs.
+                missing_dependencies = []
+                for dep_module_path in module_dependencies:
+                    if "/" not in dep_module_path:
+                        missing_dependencies.append(dep_module_path)
+                        continue
+                    dep_category, dep_name = dep_module_path.split("/", 1)
+                    if _can_view_all_runs(_current_role()):
+                        dep_run = db.execute(
+                            """
+                            SELECT id, status, module_category, module_name, credential_id, user_id
+                            FROM runs
+                            WHERE module_category = ?
+                              AND module_name = ?
+                              AND credential_id = ?
+                              AND status = 'completed'
+                            ORDER BY id DESC
+                            LIMIT 1
+                            """,
+                            (dep_category, dep_name, credential_id_value),
+                        ).fetchone()
+                    else:
+                        dep_run = db.execute(
+                            """
+                            SELECT id, status, module_category, module_name, credential_id, user_id
+                            FROM runs
+                            WHERE user_id = ?
+                              AND module_category = ?
+                              AND module_name = ?
+                              AND credential_id = ?
+                              AND status = 'completed'
+                            ORDER BY id DESC
+                            LIMIT 1
+                            """,
+                            (int(session["user_id"]), dep_category, dep_name, credential_id_value),
+                        ).fetchone()
+                    if not dep_run:
+                        missing_dependencies.append(dep_module_path)
+                        continue
+                    dependency_id_values.append(int(dep_run["id"]))
+
+                if missing_dependencies:
+                    flash(
+                        "Missing dependency run(s): "
+                        + ", ".join(missing_dependencies)
+                        + ". Execute these modules first (same credential).",
+                        "error",
+                    )
+                    return redirect(url_for("dashboard"))
+                dependency_auto_selected = True
 
             placeholders = ",".join(["?"] * len(dependency_id_values))
             dependency_rows = db.execute(
@@ -2995,6 +3124,12 @@ def create_app():
                     (run_id, dependency_id, None, _now()),
                 )
             db.commit()
+            if dependency_auto_selected:
+                flash(
+                    "Dependencies auto-selected: "
+                    + ", ".join(f"#{dep_id}" for dep_id in dependency_id_values),
+                    "success",
+                )
         _set_active_credential(
             db,
             user_id,

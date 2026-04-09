@@ -97,6 +97,7 @@
           {% endfor %}
         </select>
       </label>
+      <p id="depends_on_status" class="hint" style="display:none;"></p>
 
       <label>AWS Region (optional, prepended to module inputs)
         <select id="selected_region" name="selected_region">
@@ -278,6 +279,7 @@
     const credentialSelect = document.getElementById("credential_id");
     const dependsOnLabel = document.getElementById("depends_on_label");
     const dependsOnSelect = document.getElementById("depends_on_run_ids");
+    const dependsOnStatus = document.getElementById("depends_on_status");
     const consoleForm = document.getElementById("console_generate_form");
     const consoleCredentialInput = document.getElementById("console_credential_id");
     const moduleCatalog = {{ modules | tojson }};
@@ -359,6 +361,10 @@
           opt.selected = false;
         }
       }
+      if (dependsOnStatus) {
+        dependsOnStatus.style.display = "none";
+        dependsOnStatus.textContent = "";
+      }
     }
 
     function selectedDependencyRunIds() {
@@ -390,6 +396,33 @@
         const moduleMismatch = selectedDependencies.length > 0 && !selectedDependencies.includes(modulePath);
         opt.hidden = credentialMismatch || moduleMismatch;
       });
+      renderDependencyStatus();
+    }
+
+    function renderDependencyStatus() {
+      if (!dependsOnStatus || !dependsOnSelect) return;
+      const selectedModule = moduleByPath(moduleSelect.value);
+      const selectedDependencies = (selectedModule && selectedModule.metadata && Array.isArray(selectedModule.metadata.dependencies))
+        ? selectedModule.metadata.dependencies
+        : [];
+      if (!selectedDependencies.length) {
+        dependsOnStatus.style.display = "none";
+        dependsOnStatus.textContent = "";
+        return;
+      }
+      const visibleModulePaths = new Set(
+        Array.from(dependsOnSelect.options)
+          .filter((opt, idx) => idx > 0 && !opt.hidden)
+          .map((opt) => opt.getAttribute("data-module-path"))
+          .filter((v) => !!v)
+      );
+      const missing = selectedDependencies.filter((dep) => !visibleModulePaths.has(dep));
+      dependsOnStatus.style.display = "block";
+      if (missing.length) {
+        dependsOnStatus.textContent = `Missing dependency runs (same credential): ${missing.join(", ")}.`;
+      } else {
+        dependsOnStatus.textContent = "Dependencies available. Leave selection empty to auto-select latest completed run(s).";
+      }
     }
 
     categoryFilter.addEventListener("change", filterModules);
@@ -416,17 +449,22 @@
       const needsDependency = deps.length > 0;
       if (dependsOnLabel && dependsOnSelect) {
         dependsOnLabel.style.display = needsDependency ? "block" : "none";
-        dependsOnSelect.required = needsDependency;
+        dependsOnSelect.required = false;
         dependsOnSelect.multiple = mode === "multiple";
         dependsOnSelect.size = mode === "multiple" ? 8 : 6;
         if (!needsDependency) {
           for (const opt of Array.from(dependsOnSelect.options)) {
             opt.selected = false;
           }
+          if (dependsOnStatus) {
+            dependsOnStatus.style.display = "none";
+            dependsOnStatus.textContent = "";
+          }
         } else {
           filterDependencyRuns();
         }
       }
+      renderDependencyStatus();
     });
 
     if (runForm) {
@@ -442,20 +480,14 @@
           : "single";
         const needsDependency = deps.length > 0;
         const selectedDepIds = selectedDependencyRunIds();
-        const hasDependency = selectedDepIds.length > 0;
         if (requiresRegion && !hasRegion) {
           event.preventDefault();
           alert("This module requires an AWS region. Please select one before queueing the run.");
           return;
         }
-        if (needsDependency && !hasDependency) {
+        if (needsDependency && mode === "single" && selectedDepIds.length > 1) {
           event.preventDefault();
-          alert("This module requires dependency run(s) before queueing.");
-          return;
-        }
-        if (needsDependency && mode === "single" && selectedDepIds.length !== 1) {
-          event.preventDefault();
-          alert("Select exactly one dependency run for this module.");
+          alert("Select at most one dependency run for this module, or leave empty for auto-selection.");
           return;
         }
         if (needsDependency && !credentialSelect.value) {
