@@ -1,5 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
+{% set queued_runs = runs|selectattr('status', 'equalto', 'queued')|list|length %}
+{% set running_runs = runs|selectattr('status', 'equalto', 'running')|list|length %}
+{% set completed_runs = runs|selectattr('status', 'equalto', 'completed')|list|length %}
+{% set failed_runs = runs|selectattr('status', 'equalto', 'failed')|list|length %}
+<section class="page-head">
+  <h1>Overview</h1>
+  <p>Module execution, findings, and credential workflows in one control plane.</p>
+</section>
+<section class="stats-grid">
+  <article class="stat-card">
+    <h3>{{ runs|length }}</h3>
+    <p>Total Runs</p>
+  </article>
+  <article class="stat-card">
+    <h3>{{ queued_runs + running_runs }}</h3>
+    <p>Active Runs</p>
+  </article>
+  <article class="stat-card">
+    <h3>{{ completed_runs }}</h3>
+    <p>Completed</p>
+  </article>
+  <article class="stat-card">
+    <h3>{{ failed_runs }}</h3>
+    <p>Failed</p>
+  </article>
+</section>
 <section class="grid dashboard-grid">
   <article class="card launch-card">
     <h2>Launch Module</h2>

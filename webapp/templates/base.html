@@ -7,31 +7,47 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">Kintoun Control Plane{% if session.get('role') %} | {{ session.get('role')|upper }}{% endif %}</div>
-    {% if session.get('user_id') %}
-      <nav class="nav">
-        {% if session.get('role') == 'admin' %}
-        <a href="{{ url_for('users_list') }}">User Management</a>
-        <a href="{{ url_for('admin_credentials') }}">Credential Ownership</a>
-        {% elif session.get('role') == 'operator' %}
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('credentials_list') }}">Credentials</a>
-        <a href="{{ url_for('tunnels_list') }}">Tunnels</a>
-        {% elif session.get('role') == 'viewer' %}
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
-        {% endif %}
-        <a href="{{ url_for('logout') }}">Logout</a>
-      </nav>
-    {% else %}
-      <nav class="nav">
-        <a href="{{ url_for('login') }}">Login</a>
-        <a href="{{ url_for('register') }}">Register</a>
-      </nav>
-    {% endif %}
-  </header>
+  {% if session.get('user_id') %}
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-dot">K</div>
+        <div>
+          <h1>Kintoun</h1>
+          <p>{{ session.get('role', 'operator')|upper }} CONTROL PLANE</p>
+        </div>
+      </div>
 
+      <nav class="sidebar-nav">
+        {% if session.get('role') == 'admin' %}
+        <a class="{{ 'active' if request.endpoint == 'users_list' else '' }}" href="{{ url_for('users_list') }}">User Management</a>
+        <a class="{{ 'active' if request.endpoint == 'admin_credentials' else '' }}" href="{{ url_for('admin_credentials') }}">Credential Ownership</a>
+        {% elif session.get('role') == 'operator' %}
+        <a class="{{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="{{ 'active' if request.endpoint in ['credentials_list', 'credentials_new', 'credentials_edit'] else '' }}" href="{{ url_for('credentials_list') }}">Credentials</a>
+        <a class="{{ 'active' if request.endpoint in ['tunnels_list', 'tunnels_new', 'tunnels_edit', 'tunnel_chains_new', 'tunnel_chains_edit', 'network_profiles_new', 'network_profiles_edit'] else '' }}" href="{{ url_for('tunnels_list') }}">Tunnels & Network</a>
+        {% elif session.get('role') == 'viewer' %}
+        <a class="{{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% endif %}
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </aside>
+
+    <main class="app-main">
+  {% else %}
+  <header class="public-topbar">
+    <div class="public-brand">Kintoun Control Plane</div>
+    <nav class="public-nav">
+      <a href="{{ url_for('login') }}">Login</a>
+      <a href="{{ url_for('register') }}">Register</a>
+    </nav>
+  </header>
   <main class="container">
+  {% endif %}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-stack">
@@ -41,7 +57,12 @@
         </div>
       {% endif %}
     {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
+
+  {% if session.get('user_id') %}
+  </div>
+  {% endif %}
 </body>
 </html>
