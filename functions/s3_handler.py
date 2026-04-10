@@ -11,7 +11,7 @@ class S3():
     def list_buckets(self):
         try:
             return self.client.list_buckets()
-        except botocore.exceptions.ClientError:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False
 
     def list_objects(self, bucket, token=None):
@@ -19,5 +19,5 @@ class S3():
             if token:
                 return self.client.list_objects_v2(Bucket=bucket, MaxKeys=1000, ContinuationToken=token)
             return self.client.list_objects_v2(Bucket=bucket, MaxKeys=1000)
-        except botocore.exceptions.ClientError:
+        except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError):
             return False

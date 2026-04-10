@@ -15,6 +15,10 @@ MODULE_METADATA = {
     "output_type": "json",
     "risk_level": "high",
     "result_view": "iam_privesc_scan",
+    "execution_limits": {
+        "timeout_seconds": 1800,
+        "max_api_calls": 20000,
+    },
     "dependencies": [
         "enumeration/iam_enumerate_roles",
         "enumeration/iam_enumerate_role_trust_policy",
@@ -54,8 +58,8 @@ def _to_list(value):
     return [value]
 
 
-def _extract_current_identity(session):
-    sts = session.client("sts")
+def _extract_current_identity(session, botoconfig):
+    sts = session.client("sts", config=botoconfig)
     caller = sts.get_caller_identity()
     arn = caller.get("Arn", "")
     account_id = caller.get("Account", "")
@@ -208,7 +212,9 @@ def _policy_document_is_powerful(policy_doc):
     return len(reasons) > 0, sorted(set(reasons))
 
 
-def _scan_role_policies(iam, role_name):
+def _scan_role_policies(iam, role_name, policy_doc_cache=None):
+    if policy_doc_cache is None:
+        policy_doc_cache = {}
     attached_policy_names = []
     policy_reasons = []
     powerful = False
@@ -228,28 +234,38 @@ def _scan_role_policies(iam, role_name):
                 powerful = True
                 policy_reasons.append(f"Attached managed policy: {policy_name}")
             if policy_arn:
-                policy_meta = iam.get_policy(PolicyArn=policy_arn)
-                policy_obj = policy_meta.get("Policy", {}) if isinstance(policy_meta, dict) else {}
-                default_version = policy_obj.get("DefaultVersionId")
-                if default_version:
-                    version = iam.get_policy_version(PolicyArn=policy_arn, VersionId=default_version)
+                cache_key = f"managed::{policy_arn}"
+                if cache_key in policy_doc_cache:
+                    pol_powerful, reasons = policy_doc_cache[cache_key]
+                else:
+                    policy_meta = iam.get_policy(PolicyArn=policy_arn)
+                    policy_obj = policy_meta.get("Policy", {}) if isinstance(policy_meta, dict) else {}
+                    default_version = policy_obj.get("DefaultVersionId")
                     doc = {}
-                    if isinstance(version, dict):
-                        doc = version.get("PolicyVersion", {}).get("Document", {})
+                    if default_version:
+                        version = iam.get_policy_version(PolicyArn=policy_arn, VersionId=default_version)
+                        if isinstance(version, dict):
+                            doc = version.get("PolicyVersion", {}).get("Document", {})
                     pol_powerful, reasons = _policy_document_is_powerful(doc)
-                    if pol_powerful:
-                        powerful = True
-                        for reason in reasons:
-                            policy_reasons.append(f"{policy_name or policy_arn}: {reason}")
+                    policy_doc_cache[cache_key] = (pol_powerful, reasons)
+                if pol_powerful:
+                    powerful = True
+                    for reason in reasons:
+                        policy_reasons.append(f"{policy_name or policy_arn}: {reason}")
         if not attached.get("IsTruncated") or not attached.get("Marker"):
             break
         marker = attached.get("Marker")
 
     inline_policies = iam.list_role_policies(RoleName=role_name).get("PolicyNames", [])
     for inline_name in inline_policies:
-        inline = iam.get_role_policy(RoleName=role_name, PolicyName=inline_name)
-        inline_doc = inline.get("PolicyDocument", {}) if isinstance(inline, dict) else {}
-        pol_powerful, reasons = _policy_document_is_powerful(inline_doc)
+        cache_key = f"inline::{role_name}::{inline_name}"
+        if cache_key in policy_doc_cache:
+            pol_powerful, reasons = policy_doc_cache[cache_key]
+        else:
+            inline = iam.get_role_policy(RoleName=role_name, PolicyName=inline_name)
+            inline_doc = inline.get("PolicyDocument", {}) if isinstance(inline, dict) else {}
+            pol_powerful, reasons = _policy_document_is_powerful(inline_doc)
+            policy_doc_cache[cache_key] = (pol_powerful, reasons)
         if pol_powerful:
             powerful = True
             for reason in reasons:
@@ -267,7 +283,7 @@ def main(botoconfig, session, context=None):
     inputs = collect_inputs()
     target_account_id = (inputs.get("target_account_id") or "").strip()
     iam = session.client("iam", config=botoconfig)
-    current_account_id, current_arn = _extract_current_identity(session)
+    current_account_id, current_arn = _extract_current_identity(session, botoconfig)
     role_map = _extract_roles_from_dependencies(context)
     trust_map = _extract_trust_from_dependencies(context)
     errors = []
@@ -284,6 +300,7 @@ def main(botoconfig, session, context=None):
 
     role_results = []
     high_risk_roles = []
+    policy_doc_cache = {}
     for role_name in sorted(role_map.keys()):
         role_item = role_map.get(role_name, {})
         role_arn = role_item.get("arn")
@@ -308,7 +325,7 @@ def main(botoconfig, session, context=None):
                         {"principal_type": p_type, "value": value, "account_id": account_id}
                     )
 
-            policy_scan = _scan_role_policies(iam, role_name)
+            policy_scan = _scan_role_policies(iam, role_name, policy_doc_cache=policy_doc_cache)
             has_cross_account_trust = len(cross_account_entities) > 0
             high_risk = bool(policy_scan["powerful"] and has_cross_account_trust)
             if wildcard_trust and policy_scan["powerful"]:
